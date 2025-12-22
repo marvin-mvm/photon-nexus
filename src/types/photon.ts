@@ -7,7 +7,7 @@ export interface LobeEntry {
   lobe: LobeType;
   message: string;
   timestamp: number;
-  type?: 'XOR' | 'MEM' | 'SELF' | 'SHRED' | 'SUCCESS' | 'CONFLICT' | 'MIRROR';
+  type?: 'XOR' | 'MEM' | 'SELF' | 'SHRED' | 'SUCCESS' | 'CONFLICT' | 'MIRROR' | 'CALIBRATION';
   isRevealing?: boolean;
   revealed?: boolean;
 }
@@ -39,6 +39,13 @@ export interface MissionState {
   progress: number;
   shardCount: number;
   activeLobes: LobeType[];
+}
+
+export interface SessionState {
+  sessionId: string | null;
+  contextSaturation: number;
+  currentExperienceId: string | null;
+  isArchiving: boolean;
 }
 
 export interface LobeConfig {

@@ -7,14 +7,17 @@ import { MissionControl } from '@/components/photon/MissionControl';
 import { MirrorResonanceGauge } from '@/components/photon/MirrorResonanceGauge';
 import { NeuralMirrorScanner } from '@/components/photon/NeuralMirrorScanner';
 import { AlphaDiscoveryBanner } from '@/components/photon/AlphaDiscoveryBanner';
+import { CalibrationBalloon } from '@/components/photon/CalibrationBalloon';
 import { usePhotonState } from '@/hooks/usePhotonState';
 import { useSoundSystem } from '@/hooks/useSoundSystem';
 import { useMissionRunner } from '@/hooks/useMissionRunner';
+import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { Volume2, VolumeX, Zap } from 'lucide-react';
 
 const Index = () => {
   const photonState = usePhotonState();
   const soundSystem = useSoundSystem();
+  const supabaseSession = useSupabaseSession();
 
   const missionRunner = useMissionRunner({
     addEntry: photonState.addEntry,
@@ -30,6 +33,15 @@ const Index = () => {
     setIsMirrorActive: photonState.setIsMirrorActive,
     resetMirror: photonState.resetMirror,
     consumeCredit: photonState.consumeCredit,
+    // Session & saturation
+    incrementSaturation: photonState.incrementSaturation,
+    setIsArchiving: photonState.setIsArchiving,
+    sessionId: photonState.sessionState.sessionId,
+    contextSaturation: photonState.sessionState.contextSaturation,
+    // Supabase callbacks
+    archiveToExperience: supabaseSession.archiveToExperience,
+    insertExperience: supabaseSession.insertExperience,
+    // Sound callbacks
     playLobeActivation: soundSystem.playLobeActivation,
     playDataIngest: soundSystem.playDataIngest,
     playEntropyConsume: soundSystem.playEntropyConsume,
@@ -40,15 +52,32 @@ const Index = () => {
     playMirrorMatch: soundSystem.playMirrorMatch,
   });
 
-  const handleStartMission = (missionId: string) => {
+  const handleStartMission = async (missionId: string) => {
     if (photonState.credits <= 0) return;
     soundSystem.initAudio();
+    
+    // Create session if not exists
+    if (!photonState.sessionState.sessionId) {
+      const newSessionId = await supabaseSession.createSession(missionId);
+      if (newSessionId) {
+        photonState.setSessionId(newSessionId);
+      }
+    }
+    
     missionRunner.runMission(missionId);
   };
 
-  const handleCustomMission = (problem: string) => {
+  const handleCustomMission = async (problem: string) => {
     if (photonState.credits <= 0) return;
     soundSystem.initAudio();
+    
+    if (!photonState.sessionState.sessionId) {
+      const newSessionId = await supabaseSession.createSession('Custom Mission');
+      if (newSessionId) {
+        photonState.setSessionId(newSessionId);
+      }
+    }
+    
     missionRunner.runCustomMission(problem);
   };
 
@@ -57,17 +86,29 @@ const Index = () => {
     photonState.clearAll();
   };
 
+  const handleArchive = async () => {
+    if (!photonState.sessionState.sessionId) return;
+    
+    photonState.setIsArchiving(true);
+    await supabaseSession.archiveToExperience(
+      photonState.sessionState.sessionId,
+      'Manual Archive',
+      'User-initiated cognitive state preservation.',
+      { manual: true, saturation: photonState.sessionState.contextSaturation }
+    );
+    photonState.setIsArchiving(false);
+  };
+
+  const showCalibrationBalloon = photonState.sessionState.contextSaturation >= 85;
+
   return (
     <div className="min-h-screen bg-background noise-overlay">
-      {/* Mission Active Overlay */}
       {photonState.missionState.isRunning && photonState.missionState.activeLobes.includes('MIS') && (
         <div className="fixed inset-0 pointer-events-none z-40 bg-lobe-mission/5 animate-pulse" />
       )}
 
-      {/* Alpha Discovery Banner */}
       <AlphaDiscoveryBanner credits={photonState.credits} />
 
-      {/* Header */}
       <header className="border-b border-white/5 bg-black/60 backdrop-blur-2xl sticky top-0 z-50 px-10 py-5">
         <div className="max-w-[1700px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-5">
@@ -95,7 +136,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Mirror Resonance Gauge */}
           <MirrorResonanceGauge 
             mirrorMatch={photonState.mirrorMatch}
             isMirrorActive={photonState.isMirrorActive}
@@ -105,32 +145,32 @@ const Index = () => {
             onClick={soundSystem.toggleMute}
             className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-xl hover:bg-white/5"
           >
-            {soundSystem.isMuted ? (
-              <VolumeX className="w-5 h-5" />
-            ) : (
-              <Volume2 className="w-5 h-5" />
-            )}
+            {soundSystem.isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
           </button>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-[1700px] mx-auto p-10">
         <div className="grid grid-cols-12 gap-10">
-          {/* Left Column - Terminal & Assets */}
           <div className="col-span-12 lg:col-span-8 space-y-10">
-            {/* Terminal */}
             <div className="h-[600px]">
               <Terminal entries={photonState.entries} />
             </div>
             
-            {/* Asset Registry */}
+            {showCalibrationBalloon && (
+              <CalibrationBalloon
+                saturationPct={photonState.sessionState.contextSaturation}
+                sessionId={photonState.sessionState.sessionId || 'demo-session'}
+                onArchive={handleArchive}
+                isArchiving={photonState.sessionState.isArchiving}
+              />
+            )}
+            
             <div className="h-[300px]">
               <PerfectionLog assets={photonState.mindMaps} />
             </div>
           </div>
 
-          {/* Right Column - Telemetry */}
           <div className="col-span-12 lg:col-span-4 space-y-8">
             <MissionControl
               isRunning={photonState.missionState.isRunning}
@@ -148,19 +188,12 @@ const Index = () => {
             />
 
             <LobeActivityGrid activeLobes={photonState.missionState.activeLobes} />
-
-            <MemoryGauge
-              shardCount={photonState.missionState.shardCount}
-              maxShards={3000}
-              layer={0}
-            />
-
+            <MemoryGauge shardCount={photonState.missionState.shardCount} maxShards={3000} layer={0} />
             <EntropyTank slices={photonState.entropySlices} />
           </div>
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="p-20 text-center">
         <div className="inline-flex flex-col items-center gap-4">
           <div className="flex gap-10 text-[10px] font-black text-muted-foreground/40 uppercase tracking-[0.4em]">

@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { LobeType } from '@/types/photon';
 import { DemoStep, getDemoSequence, generateCustomSequence } from '@/lib/demoSequences';
+import type { Json } from '@/integrations/supabase/types';
 
 interface UseMissionRunnerParams {
   addEntry: (lobe: LobeType, message: string, type?: string) => void;
@@ -16,6 +17,27 @@ interface UseMissionRunnerParams {
   setIsMirrorActive: (active: boolean) => void;
   resetMirror: () => void;
   consumeCredit: () => void;
+  // Session & saturation
+  incrementSaturation: (amount: number) => void;
+  setIsArchiving: (isArchiving: boolean) => void;
+  sessionId: string | null;
+  contextSaturation: number;
+  // Supabase callbacks
+  archiveToExperience?: (
+    sessionId: string,
+    title: string,
+    handoverSummary: string,
+    logicSkeleton?: Json
+  ) => Promise<string | null>;
+  insertExperience?: (experience: {
+    session_id: string;
+    title: string;
+    description?: string;
+    handover_summary: string;
+    logic_skeleton?: Json;
+    status?: 'ACTIVE' | 'SHREDDED' | 'ARCHIVED';
+  }) => Promise<string | null>;
+  // Sound callbacks
   playLobeActivation: (index: number) => void;
   playDataIngest: () => void;
   playEntropyConsume: () => void;
@@ -25,6 +47,15 @@ interface UseMissionRunnerParams {
   playBeep: () => void;
   playMirrorMatch: () => void;
 }
+
+// Saturation increment per step (varies by action type)
+const SATURATION_INCREMENT = {
+  default: 3,
+  addShards: 4,
+  conflict: 5,
+  promote: 6,
+  shred: 4,
+};
 
 export function useMissionRunner(params: UseMissionRunnerParams) {
   const {
@@ -41,6 +72,12 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
     setIsMirrorActive,
     resetMirror,
     consumeCredit,
+    incrementSaturation,
+    setIsArchiving,
+    sessionId,
+    contextSaturation,
+    archiveToExperience,
+    insertExperience,
     playLobeActivation,
     playDataIngest,
     playEntropyConsume,
@@ -52,10 +89,12 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
   } = params;
 
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const calibrationTriggeredRef = useRef(false);
 
   const clearTimeouts = useCallback(() => {
     timeoutsRef.current.forEach(clearTimeout);
     timeoutsRef.current = [];
+    calibrationTriggeredRef.current = false;
   }, []);
 
   const executeStep = useCallback((step: DemoStep, stepIndex: number, totalSteps: number) => {
@@ -65,6 +104,13 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
 
     // Update progress
     setMissionProgress((stepIndex / totalSteps) * 100);
+
+    // Calculate saturation increment based on action type
+    let saturationInc = SATURATION_INCREMENT.default;
+    if (step.action) {
+      saturationInc = SATURATION_INCREMENT[step.action as keyof typeof SATURATION_INCREMENT] || SATURATION_INCREMENT.default;
+    }
+    incrementSaturation(saturationInc);
 
     // Handle actions
     if (step.action) {
@@ -94,7 +140,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
 
         case 'conflict':
           setMissionPhase('CONFLICT DETECTED');
-          setIsMirrorActive(false); // Mirror resets on conflict
+          setIsMirrorActive(false);
           playConflict();
           break;
 
@@ -110,10 +156,26 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
           addMindMap(promoteId, 2025, 'promoted', 'Promoted to Instinct');
           playResolution();
           setMissionPhase('CONSOLIDATING');
-          // Set mirror to 100% on successful synthesis and consume credit
           setMirrorMatch(100);
           setIsMirrorActive(true);
           consumeCredit();
+
+          // Insert experience into Supabase
+          if (insertExperience && sessionId) {
+            insertExperience({
+              session_id: sessionId,
+              title: `${promoteId} - Mission Complete`,
+              description: 'Cognitive synthesis achieved',
+              handover_summary: `Resolved ${promoteId} using 6-lobe categorical analysis. Key insight: Dynamic stability achieved through regularized symplectic integration. Mirror resonance confirmed at 100%.`,
+              logic_skeleton: {
+                lobes_used: ['NUM', 'DYN', 'CHR', 'SPA', 'EVI', 'MIS'],
+                resolution_method: 'regularized_symplectic',
+                conflict_resolved: true,
+                mirror_resonance: 100,
+              },
+              status: 'ACTIVE',
+            });
+          }
           break;
 
         case 'mirror':
@@ -136,22 +198,58 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
   }, [
     addEntry, addShard, addMindMap, consumeEntropy, setActiveLobes,
     setMissionPhase, setMissionProgress, setMirrorMatch, setIsMirrorActive, consumeCredit,
+    incrementSaturation, sessionId, insertExperience,
     playBeep, playDataIngest, playEntropyConsume, playLobeActivation,
     playConflict, playResolution, playShred, playMirrorMatch
   ]);
 
+  // Check if calibration balloon should be shown (at 85%)
+  const checkCalibrationThreshold = useCallback((currentSaturation: number) => {
+    if (currentSaturation >= 85 && !calibrationTriggeredRef.current) {
+      calibrationTriggeredRef.current = true;
+      
+      // Add calibration entry to terminal
+      addEntry('MIS', '⚠️ CONTEXT SATURATION: 85% — Preparing cognitive distillation to Experience Table...', 'CALIBRATION');
+      setMissionPhase('CALIBRATING');
+
+      // Auto-archive if we have the callback
+      if (archiveToExperience && sessionId) {
+        setIsArchiving(true);
+        archiveToExperience(
+          sessionId,
+          'Session Calibration Archive',
+          'Automatic archive triggered at 85% context saturation. Cognitive state preserved for session continuity.',
+          {
+            saturation_at_archive: currentSaturation,
+            auto_triggered: true,
+            timestamp: new Date().toISOString(),
+          }
+        ).finally(() => {
+          setIsArchiving(false);
+        });
+      }
+    }
+  }, [addEntry, setMissionPhase, archiveToExperience, sessionId, setIsArchiving]);
+
   const runMission = useCallback((missionId: string) => {
     clearTimeouts();
-    resetMirror(); // Reset mirror at start
+    resetMirror();
+    calibrationTriggeredRef.current = false;
     startMission();
 
     const sequence = getDemoSequence(missionId);
     let accumulatedDelay = 0;
+    let runningContextSaturation = contextSaturation;
 
     sequence.forEach((step, index) => {
       accumulatedDelay += step.delay;
       const timeout = setTimeout(() => {
         executeStep(step, index + 1, sequence.length);
+        
+        // Track saturation for calibration check
+        const saturationInc = SATURATION_INCREMENT[step.action as keyof typeof SATURATION_INCREMENT] || SATURATION_INCREMENT.default;
+        runningContextSaturation += saturationInc;
+        checkCalibrationThreshold(runningContextSaturation);
       }, accumulatedDelay);
       timeoutsRef.current.push(timeout);
     });
@@ -161,20 +259,27 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
       endMission();
     }, accumulatedDelay + 1000);
     timeoutsRef.current.push(endTimeout);
-  }, [clearTimeouts, resetMirror, startMission, endMission, executeStep]);
+  }, [clearTimeouts, resetMirror, startMission, endMission, executeStep, contextSaturation, checkCalibrationThreshold]);
 
   const runCustomMission = useCallback((problem: string) => {
     clearTimeouts();
-    resetMirror(); // Reset mirror at start
+    resetMirror();
+    calibrationTriggeredRef.current = false;
     startMission();
 
     const sequence = generateCustomSequence(problem);
     let accumulatedDelay = 0;
+    let runningContextSaturation = contextSaturation;
 
     sequence.forEach((step, index) => {
       accumulatedDelay += step.delay;
       const timeout = setTimeout(() => {
         executeStep(step, index + 1, sequence.length);
+        
+        // Track saturation for calibration check
+        const saturationInc = SATURATION_INCREMENT[step.action as keyof typeof SATURATION_INCREMENT] || SATURATION_INCREMENT.default;
+        runningContextSaturation += saturationInc;
+        checkCalibrationThreshold(runningContextSaturation);
       }, accumulatedDelay);
       timeoutsRef.current.push(timeout);
     });
@@ -184,7 +289,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
       endMission();
     }, accumulatedDelay + 1000);
     timeoutsRef.current.push(endTimeout);
-  }, [clearTimeouts, resetMirror, startMission, endMission, executeStep]);
+  }, [clearTimeouts, resetMirror, startMission, endMission, executeStep, contextSaturation, checkCalibrationThreshold]);
 
   return {
     runMission,

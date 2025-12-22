@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { LobeEntry, Shard, MindMapAsset, EntropySlice, MissionState, LobeType } from '@/types/photon';
+import { LobeEntry, Shard, MindMapAsset, EntropySlice, MissionState, LobeType, SessionState } from '@/types/photon';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -24,6 +24,14 @@ export function usePhotonState() {
   
   // Credits (Entropy Vouchers) - 50 training tokens
   const [credits, setCredits] = useState(50);
+
+  // Session state for Calibration Balloon
+  const [sessionState, setSessionState] = useState<SessionState>({
+    sessionId: null,
+    contextSaturation: 0,
+    currentExperienceId: null,
+    isArchiving: false,
+  });
 
   const consumeCredit = useCallback(() => {
     setCredits((prev) => Math.max(0, prev - 1));
@@ -128,12 +136,46 @@ export function usePhotonState() {
     setIsMirrorActive(false);
   }, []);
 
+  // Session state management
+  const setSessionId = useCallback((sessionId: string | null) => {
+    setSessionState(prev => ({ ...prev, sessionId }));
+  }, []);
+
+  const incrementSaturation = useCallback((amount: number) => {
+    setSessionState(prev => ({
+      ...prev,
+      contextSaturation: Math.min(100, prev.contextSaturation + amount),
+    }));
+  }, []);
+
+  const setContextSaturation = useCallback((value: number) => {
+    setSessionState(prev => ({ ...prev, contextSaturation: value }));
+  }, []);
+
+  const setIsArchiving = useCallback((isArchiving: boolean) => {
+    setSessionState(prev => ({ ...prev, isArchiving }));
+  }, []);
+
+  const setCurrentExperienceId = useCallback((experienceId: string | null) => {
+    setSessionState(prev => ({ ...prev, currentExperienceId: experienceId }));
+  }, []);
+
+  const resetSession = useCallback(() => {
+    setSessionState({
+      sessionId: null,
+      contextSaturation: 0,
+      currentExperienceId: null,
+      isArchiving: false,
+    });
+  }, []);
+
   const clearAll = useCallback(() => {
     setEntries([]);
     setShards([]);
     setMindMaps([]);
     resetEntropy();
     resetMirror();
+    resetSession();
     setMissionState({
       isRunning: false,
       currentPhase: 'IDLE',
@@ -141,7 +183,7 @@ export function usePhotonState() {
       shardCount: 0,
       activeLobes: [],
     });
-  }, [resetEntropy, resetMirror]);
+  }, [resetEntropy, resetMirror, resetSession]);
 
   return {
     // State
@@ -153,6 +195,7 @@ export function usePhotonState() {
     mirrorMatch,
     isMirrorActive,
     credits,
+    sessionState,
     // Actions
     addEntry,
     addShard,
@@ -172,5 +215,12 @@ export function usePhotonState() {
     resetMirror,
     consumeCredit,
     resetCredits,
+    // Session actions
+    setSessionId,
+    incrementSaturation,
+    setContextSaturation,
+    setIsArchiving,
+    setCurrentExperienceId,
+    resetSession,
   };
 }
