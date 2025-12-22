@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Dna } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NeuralMirrorScannerProps {
@@ -32,7 +32,7 @@ export function NeuralMirrorScanner({ isMirrorActive, mirrorMatch, isThinking }:
       {/* Premium gradient line */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
       
-      {/* Rotating DNA icon */}
+      {/* Header with Search icon */}
       <div className="flex items-center gap-4 mb-5">
         <div className={cn(
           'p-2.5 rounded-xl border transition-all duration-500',
@@ -40,21 +40,21 @@ export function NeuralMirrorScanner({ isMirrorActive, mirrorMatch, isThinking }:
             ? 'border-primary/50 bg-primary/10 shadow-[0_0_20px_hsl(var(--primary)/0.3)]'
             : 'border-white/10 bg-white/5'
         )}>
-          <Dna className={cn(
+          <Search className={cn(
             'w-5 h-5 transition-all',
-            isThinking && 'animate-spin-slow',
+            isThinking && 'animate-pulse',
             isMirrorActive ? 'text-primary' : 'text-muted-foreground/50'
           )} />
         </div>
         <div>
-          <h3 className="section-header">Neural Mirror Scan</h3>
+          <h3 className="section-header">Experience Scan</h3>
           <p className="text-[9px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
             Intuition Lattice
           </p>
         </div>
       </div>
 
-      {/* Frequency visualizer */}
+      {/* Frequency visualizer - 24 bars */}
       <div className="bg-black/40 rounded-2xl border border-white/5 p-4 mb-4">
         <div className="flex items-end justify-between h-12 gap-0.5">
           {frequencyBars.map((height, i) => (

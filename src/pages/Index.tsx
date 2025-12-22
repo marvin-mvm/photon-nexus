@@ -154,7 +154,10 @@ const Index = () => {
         <div className="grid grid-cols-12 gap-10">
           <div className="col-span-12 lg:col-span-8 space-y-10">
             <div className="h-[600px]">
-              <Terminal entries={photonState.entries} />
+              <Terminal 
+                entries={photonState.entries} 
+                contextSaturation={photonState.sessionState.contextSaturation}
+              />
             </div>
             
             {showCalibrationBalloon && (

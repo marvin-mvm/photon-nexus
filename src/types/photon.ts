@@ -7,7 +7,7 @@ export interface LobeEntry {
   lobe: LobeType;
   message: string;
   timestamp: number;
-  type?: 'XOR' | 'MEM' | 'SELF' | 'SHRED' | 'SUCCESS' | 'CONFLICT' | 'MIRROR' | 'CALIBRATION';
+  type?: 'XOR' | 'MEM' | 'SELF' | 'SHRED' | 'SUCCESS' | 'CONFLICT' | 'MIRROR' | 'CALIBRATION' | 'SYSTEM';
   isRevealing?: boolean;
   revealed?: boolean;
 }

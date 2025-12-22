@@ -48,13 +48,13 @@ interface UseMissionRunnerParams {
   playMirrorMatch: () => void;
 }
 
-// Saturation increment per step (varies by action type)
+// Saturation increment per step - now 12% for faster demo progression
 const SATURATION_INCREMENT = {
-  default: 3,
-  addShards: 4,
-  conflict: 5,
-  promote: 6,
-  shred: 4,
+  default: 12,
+  addShards: 12,
+  conflict: 12,
+  promote: 12,
+  shred: 12,
 };
 
 export function useMissionRunner(params: UseMissionRunnerParams) {
@@ -208,8 +208,8 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
     if (currentSaturation >= 85 && !calibrationTriggeredRef.current) {
       calibrationTriggeredRef.current = true;
       
-      // Add calibration entry to terminal
-      addEntry('MIS', '⚠️ CONTEXT SATURATION: 85% — Preparing cognitive distillation to Experience Table...', 'CALIBRATION');
+      // Add SYSTEM calibration entry to terminal (inline bridge notification)
+      addEntry('MIS', 'SYSTEM: Context window at 85%. DISTILLING EXPERIENCE... Next prompt will initialize a fresh session with Handover Token.', 'SYSTEM');
       setMissionPhase('CALIBRATING');
 
       // Auto-archive if we have the callback

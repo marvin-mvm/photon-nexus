@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { LobeEntry, LOBE_CONFIG } from '@/types/photon';
 import { cn } from '@/lib/utils';
-import { Terminal as TerminalIcon, Radio, AlertTriangle, Fingerprint } from 'lucide-react';
+import { Terminal as TerminalIcon, Radio, AlertTriangle, Fingerprint, Workflow } from 'lucide-react';
 
 interface TerminalProps {
   entries: LobeEntry[];
+  contextSaturation?: number;
 }
 
 // XOR text scramble effect with premium character set
@@ -45,6 +46,35 @@ function XORText({ text, isRevealing }: { text: string; isRevealing: boolean }) 
   return <span className={cn(isRevealing && 'animate-flicker')}>{displayText}</span>;
 }
 
+// Context Calibration Bridge - inline system notification
+function CalibrationBridge({ entry }: { entry: LobeEntry }) {
+  return (
+    <div className="animate-slide-in">
+      <div className="bg-gradient-to-r from-lobe-spatial/20 via-lobe-spatial/10 to-lobe-spatial/20 border border-lobe-spatial/40 rounded-2xl p-6 relative overflow-hidden">
+        {/* Animated gradient border effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-lobe-spatial/10 to-transparent animate-pulse" />
+        
+        <div className="relative flex items-start gap-4">
+          <div className="p-2.5 rounded-xl border border-lobe-spatial/50 bg-lobe-spatial/20">
+            <Workflow className="w-5 h-5 text-lobe-spatial" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-black text-lobe-spatial uppercase tracking-[0.15em]">
+                Context Calibration Bridge
+              </span>
+              <div className="w-2 h-2 rounded-full bg-lobe-spatial animate-pulse shadow-[0_0_8px_hsl(var(--lobe-spatial))]" />
+            </div>
+            <p className="text-sm text-lobe-spatial/90 leading-relaxed">
+              {entry.message}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TerminalEntry({ entry }: { entry: LobeEntry }) {
   const config = LOBE_CONFIG[entry.lobe];
   const Icon = config.icon;
@@ -53,6 +83,12 @@ function TerminalEntry({ entry }: { entry: LobeEntry }) {
   const isSuccess = entry.type === 'SUCCESS';
   const isSelf = entry.type === 'SELF';
   const isMirror = entry.type === 'MIRROR';
+  const isSystem = entry.type === 'SYSTEM' || entry.type === 'CALIBRATION';
+
+  // Render special Calibration Bridge for SYSTEM entries
+  if (isSystem) {
+    return <CalibrationBridge entry={entry} />;
+  }
 
   return (
     <div className="flex gap-6 animate-slide-in">
@@ -115,7 +151,7 @@ function TerminalEntry({ entry }: { entry: LobeEntry }) {
   );
 }
 
-export function Terminal({ entries }: TerminalProps) {
+export function Terminal({ entries, contextSaturation = 0 }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom
@@ -124,6 +160,13 @@ export function Terminal({ entries }: TerminalProps) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [entries]);
+
+  // Determine saturation color
+  const getSaturationColor = () => {
+    if (contextSaturation >= 85) return 'text-destructive';
+    if (contextSaturation >= 50) return 'text-lobe-spatial';
+    return 'text-lobe-chrono';
+  };
 
   return (
     <div className="panel-premium flex flex-col h-full">
@@ -141,12 +184,19 @@ export function Terminal({ entries }: TerminalProps) {
           </div>
           <span className="section-header">Cognitive Stream Output</span>
         </div>
-        <div className="flex items-center gap-4 text-[9px] font-bold text-muted-foreground/50">
-          <span>ENCRYPTED_LINE_V1</span>
-          <div className="flex gap-2">
-            <div className="w-3 h-1 rounded-full bg-primary/20" />
-            <div className="w-3 h-1 rounded-full bg-primary/20" />
+        <div className="flex items-center gap-6 text-[9px] font-bold">
+          {/* Context Saturation Display */}
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              'w-2 h-2 rounded-full transition-colors',
+              contextSaturation >= 85 ? 'bg-destructive animate-pulse' : 
+              contextSaturation >= 50 ? 'bg-lobe-spatial' : 'bg-lobe-chrono'
+            )} />
+            <span className={cn('uppercase tracking-wider', getSaturationColor())}>
+              Context Saturation: {contextSaturation}%
+            </span>
           </div>
+          <span className="text-muted-foreground/50">ENCRYPTED_LINE_V1</span>
         </div>
       </div>
 
