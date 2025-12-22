@@ -17,6 +17,21 @@ export function usePhotonState() {
     shardCount: 0,
     activeLobes: [],
   });
+  
+  // Mirror state for Neural Mirror Indicator
+  const [mirrorMatch, setMirrorMatch] = useState(0);
+  const [isMirrorActive, setIsMirrorActive] = useState(false);
+  
+  // Credits (Entropy Vouchers) - 50 training tokens
+  const [credits, setCredits] = useState(50);
+
+  const consumeCredit = useCallback(() => {
+    setCredits((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  const resetCredits = useCallback(() => {
+    setCredits(50);
+  }, []);
 
   const addEntry = useCallback((lobe: LobeType, message: string) => {
     const entry: LobeEntry = {
@@ -108,11 +123,17 @@ export function usePhotonState() {
     setMissionState((prev) => ({ ...prev, isRunning: false, currentPhase: 'COMPLETE', activeLobes: [] }));
   }, []);
 
+  const resetMirror = useCallback(() => {
+    setMirrorMatch(0);
+    setIsMirrorActive(false);
+  }, []);
+
   const clearAll = useCallback(() => {
     setEntries([]);
     setShards([]);
     setMindMaps([]);
     resetEntropy();
+    resetMirror();
     setMissionState({
       isRunning: false,
       currentPhase: 'IDLE',
@@ -120,7 +141,7 @@ export function usePhotonState() {
       shardCount: 0,
       activeLobes: [],
     });
-  }, [resetEntropy]);
+  }, [resetEntropy, resetMirror]);
 
   return {
     // State
@@ -129,6 +150,9 @@ export function usePhotonState() {
     mindMaps,
     entropySlices,
     missionState,
+    mirrorMatch,
+    isMirrorActive,
+    credits,
     // Actions
     addEntry,
     addShard,
@@ -143,5 +167,10 @@ export function usePhotonState() {
     startMission,
     endMission,
     clearAll,
+    setMirrorMatch,
+    setIsMirrorActive,
+    resetMirror,
+    consumeCredit,
+    resetCredits,
   };
 }

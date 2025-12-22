@@ -4,7 +4,8 @@ export interface DemoStep {
   delay: number;
   lobe: LobeType;
   message: string;
-  action?: 'addShards' | 'consumeEntropy' | 'conflict' | 'shred' | 'promote' | 'activateLobe' | 'deactivateLobe';
+  type?: 'XOR' | 'MEM' | 'SELF' | 'SHRED' | 'SUCCESS' | 'CONFLICT' | 'MIRROR';
+  action?: 'addShards' | 'consumeEntropy' | 'conflict' | 'shred' | 'promote' | 'activateLobe' | 'deactivateLobe' | 'mirror';
   actionData?: any;
 }
 
@@ -16,10 +17,14 @@ export const N_BODY_DEMO_SEQUENCE: DemoStep[] = [
   { delay: 400, lobe: 'NUM', message: 'Initializing numerical integration frameworks...', action: 'activateLobe', actionData: ['MIS', 'CHR', 'NUM'] },
   
   // Phase 2: Data Ingestion
-  { delay: 1000, lobe: 'NUM', message: 'Loading gravitational constants: G = 6.67430×10⁻¹¹ m³⋅kg⁻¹⋅s⁻²' },
+  { delay: 1000, lobe: 'NUM', message: 'Loading gravitational constants: G = 6.67430×10⁻¹¹ m³⋅kg⁻¹⋅s⁻²', type: 'XOR' },
   { delay: 300, lobe: 'NUM', message: 'Mass ratios computed: M₁:M₂:M₃ = 1.0:0.954:0.003', action: 'addShards', actionData: 16 },
   { delay: 500, lobe: 'SPA', message: 'Spatial coordinates mapped to 6D phase space', action: 'activateLobe', actionData: ['NUM', 'SPA'] },
   { delay: 400, lobe: 'SPA', message: 'Orbital plane inclinations: 7.155°, 3.394°, 1.850°', action: 'addShards', actionData: 12 },
+  
+  // Phase 2.5: Neural Mirror Scan
+  { delay: 700, lobe: 'MIS', message: 'Neural Mirror: Probing historical logic patterns... 75% similarity detected with MMP-442.', type: 'MIRROR', action: 'mirror', actionData: { percentage: 75 } },
+  
   { delay: 600, lobe: 'DYN', message: 'Dynamic stability analysis initiated', action: 'activateLobe', actionData: ['SPA', 'DYN'] },
   { delay: 300, lobe: 'DYN', message: 'Lyapunov exponent calculation: λ > 0 detected', action: 'consumeEntropy', actionData: 4 },
   
@@ -27,19 +32,19 @@ export const N_BODY_DEMO_SEQUENCE: DemoStep[] = [
   { delay: 800, lobe: 'EVI', message: 'Cross-referencing historical orbital data...', action: 'activateLobe', actionData: ['DYN', 'EVI'] },
   { delay: 500, lobe: 'EVI', message: 'Found: MMP-442 (2024 Predictive Model)', action: 'addShards', actionData: 20 },
   { delay: 400, lobe: 'EVI', message: 'Comparing against 2025 observational data...' },
-  { delay: 700, lobe: 'EVI', message: '⚠ ANOMALY DETECTED: 2024 model divergence at t+180 days', action: 'conflict' },
+  { delay: 700, lobe: 'EVI', message: '⚠ ANOMALY DETECTED: 2024 model divergence at t+180 days', type: 'CONFLICT', action: 'conflict' },
   
   // Phase 4: Conflict Resolution
   { delay: 1200, lobe: 'CHR', message: 'Temporal analysis: 2024 dataset lacks Kirkwood gap corrections', action: 'activateLobe', actionData: ['EVI', 'CHR'] },
   { delay: 600, lobe: 'NUM', message: 'Recalculating with updated resonance frequencies...', action: 'consumeEntropy', actionData: 6 },
   { delay: 800, lobe: 'DYN', message: 'New stability boundary: 3.27 AU < a < 3.31 AU', action: 'addShards', actionData: 24 },
-  { delay: 500, lobe: 'MIS', message: 'CONFLICT RESOLUTION: Shredding outdated Mind Map MMP-442', action: 'shred', actionData: 'MMP-442' },
+  { delay: 500, lobe: 'MIS', message: 'CONFLICT RESOLUTION: Shredding outdated Mind Map MMP-442', type: 'SHRED', action: 'shred', actionData: 'MMP-442' },
   
-  // Phase 5: Lobe Debate
-  { delay: 1000, lobe: 'NUM', message: 'PROPOSAL: Adopt symplectic integration for long-term stability', action: 'activateLobe', actionData: ['NUM'] },
-  { delay: 400, lobe: 'DYN', message: 'COUNTER: Symplectic methods fail at close encounters', action: 'activateLobe', actionData: ['NUM', 'DYN'] },
-  { delay: 500, lobe: 'NUM', message: 'RESPONSE: Regularization transforms can handle singularities' },
-  { delay: 400, lobe: 'CHR', message: 'SUPPORT: KS regularization proven effective in 2024 studies', action: 'activateLobe', actionData: ['NUM', 'DYN', 'CHR'] },
+  // Phase 5: Lobe Debate (Internal Dialogue)
+  { delay: 1000, lobe: 'NUM', message: 'PROPOSAL: Adopt symplectic integration for long-term stability', type: 'SELF', action: 'activateLobe', actionData: ['NUM'] },
+  { delay: 400, lobe: 'DYN', message: 'COUNTER: Symplectic methods fail at close encounters', type: 'SELF', action: 'activateLobe', actionData: ['NUM', 'DYN'] },
+  { delay: 500, lobe: 'NUM', message: 'RESPONSE: Regularization transforms can handle singularities', type: 'SELF' },
+  { delay: 400, lobe: 'CHR', message: 'SUPPORT: KS regularization proven effective in 2024 studies', type: 'SELF', action: 'activateLobe', actionData: ['NUM', 'DYN', 'CHR'] },
   { delay: 600, lobe: 'DYN', message: 'CONCEDE: Accepting regularized symplectic approach', action: 'consumeEntropy', actionData: 4 },
   { delay: 400, lobe: 'EVI', message: 'CONSENSUS REACHED: All lobes in agreement', action: 'activateLobe', actionData: ['NUM', 'DYN', 'CHR', 'EVI', 'SPA', 'MIS'] },
   
@@ -48,7 +53,7 @@ export const N_BODY_DEMO_SEQUENCE: DemoStep[] = [
   { delay: 400, lobe: 'SPA', message: 'Encoding stable orbital configurations', action: 'addShards', actionData: 28 },
   { delay: 300, lobe: 'CHR', message: 'Temporal markers synchronized: 2025.342 - 2025.891', action: 'addShards', actionData: 16 },
   { delay: 500, lobe: 'NUM', message: 'Numerical precision verified: ε < 10⁻¹²', action: 'addShards', actionData: 12 },
-  { delay: 600, lobe: 'MIS', message: 'Creating new Mind Map: MMP-505 (N-Body 2025 Revision)', action: 'promote', actionData: 'MMP-505' },
+  { delay: 600, lobe: 'MIS', message: 'Creating new Mind Map: MMP-505 (N-Body 2025 Revision)', type: 'SUCCESS', action: 'promote', actionData: 'MMP-505' },
   
   // Phase 7: Resolution
   { delay: 800, lobe: 'MIS', message: 'MISSION COMPLETE: N-Body stability analysis resolved', action: 'consumeEntropy', actionData: 2 },

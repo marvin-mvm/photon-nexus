@@ -1,3 +1,5 @@
+import { Cpu, RefreshCw, TrendingUp, Layers, ShieldCheck, Brain, LucideIcon } from 'lucide-react';
+
 export type LobeType = 'NUM' | 'DYN' | 'CHR' | 'SPA' | 'EVI' | 'MIS';
 
 export interface LobeEntry {
@@ -5,6 +7,7 @@ export interface LobeEntry {
   lobe: LobeType;
   message: string;
   timestamp: number;
+  type?: 'XOR' | 'MEM' | 'SELF' | 'SHRED' | 'SUCCESS' | 'CONFLICT' | 'MIRROR';
   isRevealing?: boolean;
   revealed?: boolean;
 }
@@ -38,11 +41,76 @@ export interface MissionState {
   activeLobes: LobeType[];
 }
 
-export const LOBE_CONFIG: Record<LobeType, { label: string; color: string; className: string }> = {
-  NUM: { label: 'Numeric', color: 'lobe-numeric', className: 'text-lobe-numeric' },
-  DYN: { label: 'Dynamic', color: 'lobe-dynamic', className: 'text-lobe-dynamic' },
-  CHR: { label: 'Chrono', color: 'lobe-chrono', className: 'text-lobe-chrono' },
-  SPA: { label: 'Spatial', color: 'lobe-spatial', className: 'text-lobe-spatial' },
-  EVI: { label: 'Evidence', color: 'lobe-evidence', className: 'text-lobe-evidence' },
-  MIS: { label: 'Mission', color: 'lobe-mission', className: 'text-lobe-mission' },
+export interface LobeConfig {
+  label: string;
+  name: string;
+  color: string;
+  className: string;
+  borderClass: string;
+  bgClass: string;
+  glowClass: string;
+  icon: LucideIcon;
+}
+
+export const LOBE_CONFIG: Record<LobeType, LobeConfig> = {
+  NUM: { 
+    label: 'NUM', 
+    name: 'Numeric', 
+    color: 'lobe-numeric', 
+    className: 'text-lobe-numeric',
+    borderClass: 'border-lobe-numeric/30',
+    bgClass: 'bg-lobe-numeric/10',
+    glowClass: 'shadow-[0_0_20px_rgba(34,211,238,0.4)]',
+    icon: Cpu 
+  },
+  DYN: { 
+    label: 'DYN', 
+    name: 'Dynamic', 
+    color: 'lobe-dynamic', 
+    className: 'text-lobe-dynamic',
+    borderClass: 'border-lobe-dynamic/30',
+    bgClass: 'bg-lobe-dynamic/10',
+    glowClass: 'shadow-[0_0_20px_rgba(168,85,247,0.4)]',
+    icon: RefreshCw 
+  },
+  CHR: { 
+    label: 'CHR', 
+    name: 'Chrono', 
+    color: 'lobe-chrono', 
+    className: 'text-lobe-chrono',
+    borderClass: 'border-lobe-chrono/30',
+    bgClass: 'bg-lobe-chrono/10',
+    glowClass: 'shadow-[0_0_20px_rgba(34,197,94,0.4)]',
+    icon: TrendingUp 
+  },
+  SPA: { 
+    label: 'SPA', 
+    name: 'Spatial', 
+    color: 'lobe-spatial', 
+    className: 'text-lobe-spatial',
+    borderClass: 'border-lobe-spatial/30',
+    bgClass: 'bg-lobe-spatial/10',
+    glowClass: 'shadow-[0_0_20px_rgba(245,158,11,0.4)]',
+    icon: Layers 
+  },
+  EVI: { 
+    label: 'EVI', 
+    name: 'Evidence', 
+    color: 'lobe-evidence', 
+    className: 'text-lobe-evidence',
+    borderClass: 'border-lobe-evidence/30',
+    bgClass: 'bg-lobe-evidence/10',
+    glowClass: 'shadow-[0_0_20px_rgba(59,130,246,0.4)]',
+    icon: ShieldCheck 
+  },
+  MIS: { 
+    label: 'MIS', 
+    name: 'Mission', 
+    color: 'lobe-mission', 
+    className: 'text-lobe-mission',
+    borderClass: 'border-lobe-mission/30',
+    bgClass: 'bg-lobe-mission/10',
+    glowClass: 'shadow-[0_0_20px_rgba(239,68,68,0.4)]',
+    icon: Brain 
+  },
 };

@@ -102,31 +102,20 @@ export function useSoundSystem() {
   }, [playTone]);
 
   const playAmbient = useCallback(() => {
-    if (isMuted) return;
-    
-    const ctx = initAudio();
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    const filter = ctx.createBiquadFilter();
-    
-    oscillator.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(60, ctx.currentTime);
-    
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(200, ctx.currentTime);
-    
-    gainNode.gain.setValueAtTime(0.02, ctx.currentTime);
-    
-    oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 2);
-  }, [isMuted, initAudio]);
+    playTone({ frequency: 60, type: 'sine', duration: 2.0, volume: 0.02 });
+    playTone({ frequency: 90, type: 'sine', duration: 2.0, volume: 0.015 });
+  }, [playTone]);
+
+  // Neural Mirror match sound - dual-tone ascending ping
+  const playMirrorMatch = useCallback(() => {
+    playTone({ frequency: 600, type: 'sine', duration: 0.1, volume: 0.04 });
+    setTimeout(() => {
+      playTone({ frequency: 900, type: 'sine', duration: 0.1, volume: 0.04 });
+    }, 50);
+  }, [playTone]);
 
   const toggleMute = useCallback(() => {
-    setIsMuted((prev) => !prev);
+    setIsMuted(prev => !prev);
   }, []);
 
   // Cleanup on unmount
@@ -140,9 +129,10 @@ export function useSoundSystem() {
 
   return {
     isMuted,
-    isInitialized,
-    toggleMute,
+    isInitialized: !!audioContextRef.current,
     initAudio,
+    toggleMute,
+    playTone,
     playBeep,
     playClick,
     playLobeActivation,
@@ -152,5 +142,6 @@ export function useSoundSystem() {
     playResolution,
     playShred,
     playAmbient,
+    playMirrorMatch,
   };
 }

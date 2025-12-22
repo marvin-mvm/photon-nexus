@@ -3,7 +3,7 @@ import { LobeType } from '@/types/photon';
 import { DemoStep, getDemoSequence, generateCustomSequence } from '@/lib/demoSequences';
 
 interface UseMissionRunnerParams {
-  addEntry: (lobe: LobeType, message: string) => void;
+  addEntry: (lobe: LobeType, message: string, type?: string) => void;
   addShard: (data: string, layer?: number) => void;
   addMindMap: (name: string, year: number, status?: 'active' | 'shredded' | 'promoted', reason?: string) => void;
   consumeEntropy: (count?: number) => void;
@@ -12,6 +12,10 @@ interface UseMissionRunnerParams {
   setMissionProgress: (progress: number) => void;
   startMission: () => void;
   endMission: () => void;
+  setMirrorMatch: (value: number) => void;
+  setIsMirrorActive: (active: boolean) => void;
+  resetMirror: () => void;
+  consumeCredit: () => void;
   playLobeActivation: (index: number) => void;
   playDataIngest: () => void;
   playEntropyConsume: () => void;
@@ -19,6 +23,7 @@ interface UseMissionRunnerParams {
   playResolution: () => void;
   playShred: () => void;
   playBeep: () => void;
+  playMirrorMatch: () => void;
 }
 
 export function useMissionRunner(params: UseMissionRunnerParams) {
@@ -32,6 +37,10 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
     setMissionProgress,
     startMission,
     endMission,
+    setMirrorMatch,
+    setIsMirrorActive,
+    resetMirror,
+    consumeCredit,
     playLobeActivation,
     playDataIngest,
     playEntropyConsume,
@@ -39,6 +48,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
     playResolution,
     playShred,
     playBeep,
+    playMirrorMatch,
   } = params;
 
   const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
@@ -49,8 +59,8 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
   }, []);
 
   const executeStep = useCallback((step: DemoStep, stepIndex: number, totalSteps: number) => {
-    // Add the terminal entry
-    addEntry(step.lobe, step.message);
+    // Add the terminal entry with optional type
+    addEntry(step.lobe, step.message, step.type);
     playBeep();
 
     // Update progress
@@ -84,6 +94,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
 
         case 'conflict':
           setMissionPhase('CONFLICT DETECTED');
+          setIsMirrorActive(false); // Mirror resets on conflict
           playConflict();
           break;
 
@@ -99,6 +110,17 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
           addMindMap(promoteId, 2025, 'promoted', 'Promoted to Instinct');
           playResolution();
           setMissionPhase('CONSOLIDATING');
+          // Set mirror to 100% on successful synthesis and consume credit
+          setMirrorMatch(100);
+          setIsMirrorActive(true);
+          consumeCredit();
+          break;
+
+        case 'mirror':
+          const mirrorData = step.actionData as { percentage: number };
+          setMirrorMatch(mirrorData.percentage);
+          setIsMirrorActive(true);
+          playMirrorMatch();
           break;
       }
     }
@@ -113,12 +135,14 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
     }
   }, [
     addEntry, addShard, addMindMap, consumeEntropy, setActiveLobes,
-    setMissionPhase, setMissionProgress, playBeep, playDataIngest,
-    playEntropyConsume, playLobeActivation, playConflict, playResolution, playShred
+    setMissionPhase, setMissionProgress, setMirrorMatch, setIsMirrorActive, consumeCredit,
+    playBeep, playDataIngest, playEntropyConsume, playLobeActivation,
+    playConflict, playResolution, playShred, playMirrorMatch
   ]);
 
   const runMission = useCallback((missionId: string) => {
     clearTimeouts();
+    resetMirror(); // Reset mirror at start
     startMission();
 
     const sequence = getDemoSequence(missionId);
@@ -137,10 +161,11 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
       endMission();
     }, accumulatedDelay + 1000);
     timeoutsRef.current.push(endTimeout);
-  }, [clearTimeouts, startMission, endMission, executeStep]);
+  }, [clearTimeouts, resetMirror, startMission, endMission, executeStep]);
 
   const runCustomMission = useCallback((problem: string) => {
     clearTimeouts();
+    resetMirror(); // Reset mirror at start
     startMission();
 
     const sequence = generateCustomSequence(problem);
@@ -159,7 +184,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
       endMission();
     }, accumulatedDelay + 1000);
     timeoutsRef.current.push(endTimeout);
-  }, [clearTimeouts, startMission, endMission, executeStep]);
+  }, [clearTimeouts, resetMirror, startMission, endMission, executeStep]);
 
   return {
     runMission,

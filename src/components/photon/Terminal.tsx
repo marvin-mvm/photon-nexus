@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { LobeEntry, LOBE_CONFIG } from '@/types/photon';
 import { cn } from '@/lib/utils';
+import { Terminal as TerminalIcon, Radio, AlertTriangle, Fingerprint } from 'lucide-react';
 
 interface TerminalProps {
   entries: LobeEntry[];
 }
 
-// XOR text scramble effect
+// XOR text scramble effect with premium character set
 function XORText({ text, isRevealing }: { text: string; isRevealing: boolean }) {
   const [displayText, setDisplayText] = useState(text);
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+  const chars = '01#$@%&*<>?/';
 
   useEffect(() => {
     if (!isRevealing) {
@@ -17,28 +18,26 @@ function XORText({ text, isRevealing }: { text: string; isRevealing: boolean }) 
       return;
     }
 
-    let iteration = 0;
-    const maxIterations = 8;
-
+    let iterations = 0;
     const interval = setInterval(() => {
       setDisplayText(
         text
           .split('')
           .map((char, index) => {
             if (char === ' ') return ' ';
-            if (index < iteration) return text[index];
+            if (index < iterations) return text[index];
             return chars[Math.floor(Math.random() * chars.length)];
           })
           .join('')
       );
 
-      iteration += text.length / maxIterations;
+      iterations += 0.5;
 
-      if (iteration >= text.length) {
+      if (iterations >= text.length) {
         clearInterval(interval);
         setDisplayText(text);
       }
-    }, 30);
+    }, 25);
 
     return () => clearInterval(interval);
   }, [text, isRevealing]);
@@ -48,13 +47,70 @@ function XORText({ text, isRevealing }: { text: string; isRevealing: boolean }) 
 
 function TerminalEntry({ entry }: { entry: LobeEntry }) {
   const config = LOBE_CONFIG[entry.lobe];
+  const Icon = config.icon;
+  
+  const isConflict = entry.type === 'CONFLICT' || entry.type === 'SHRED';
+  const isSuccess = entry.type === 'SUCCESS';
+  const isSelf = entry.type === 'SELF';
+  const isMirror = entry.type === 'MIRROR';
 
   return (
-    <div className={cn('flex gap-2 py-1 animate-slide-in', entry.isRevealing && 'opacity-80')}>
-      <span className={cn('font-bold', config.className)}>[{entry.lobe}]</span>
-      <span className="text-foreground/90">
-        <XORText text={entry.message} isRevealing={entry.isRevealing || false} />
-      </span>
+    <div className="flex gap-6 animate-slide-in">
+      {/* Icon container */}
+      <div className="flex-none">
+        <div className={cn(
+          'p-3 rounded-2xl border bg-black/60 shadow-lg transition-all duration-300',
+          config.borderClass
+        )}>
+          <Icon className={cn('w-5 h-5', config.className)} />
+        </div>
+      </div>
+      
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        {/* Header row */}
+        <div className="flex items-center gap-3 mb-2">
+          <span className={cn(
+            'text-[10px] font-black px-2 py-0.5 rounded border uppercase tracking-[0.15em]',
+            config.className,
+            config.borderClass,
+            'bg-current/5'
+          )}>
+            {config.name}
+          </span>
+          
+          {entry.type === 'CONFLICT' && (
+            <span className="text-[10px] font-black text-destructive flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" /> ANOMALY DETECTED
+            </span>
+          )}
+          {isMirror && (
+            <span className="text-[10px] font-black text-primary flex items-center gap-1">
+              <Radio className="w-3 h-3" /> Intuitive Memory Recall
+            </span>
+          )}
+          
+          <span className="text-[9px] text-muted-foreground/50 font-mono ml-auto">
+            {new Date(entry.timestamp).toLocaleTimeString()}
+          </span>
+        </div>
+        
+        {/* Message bubble */}
+        <div className={cn(
+          'p-5 rounded-3xl border text-sm leading-relaxed transition-all',
+          isConflict && 'bg-destructive/10 border-destructive/30 text-destructive/90',
+          isSuccess && 'bg-lobe-chrono/10 border-lobe-chrono/30 text-lobe-chrono font-bold',
+          isSelf && 'bg-white/5 border-white/10 text-foreground italic shadow-inner',
+          isMirror && 'bg-primary/15 border-primary/40 text-primary shadow-[0_0_15px_hsl(var(--primary)/0.15)]',
+          !isConflict && !isSuccess && !isSelf && !isMirror && 'bg-black/40 border-white/5 text-foreground/70'
+        )}>
+          {entry.type === 'XOR' ? (
+            <XORText text={entry.message} isRevealing={entry.isRevealing || false} />
+          ) : (
+            entry.message
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -70,27 +126,40 @@ export function Terminal({ entries }: TerminalProps) {
   }, [entries]);
 
   return (
-    <div className="flex flex-col h-full bg-card border border-border rounded-lg overflow-hidden relative">
+    <div className="panel-premium flex flex-col h-full">
+      {/* Premium gradient line */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-destructive/80" />
-          <div className="w-3 h-3 rounded-full bg-lobe-spatial/80" />
-          <div className="w-3 h-3 rounded-full bg-lobe-chrono/80" />
+      <div className="bg-white/[0.02] px-8 py-5 border-b border-white/5 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className={cn(
+            'p-2 rounded-xl border transition-all',
+            entries.length > 0 ? 'border-primary/50 bg-primary/10 text-primary' : 'border-white/10 text-muted-foreground'
+          )}>
+            <TerminalIcon className="w-4 h-4" />
+          </div>
+          <span className="section-header">Cognitive Stream Output</span>
         </div>
-        <h2 className="text-sm font-semibold text-primary glow-text">6-LOBE INTERNAL DIALOGUE</h2>
-        <div className="w-16" />
+        <div className="flex items-center gap-4 text-[9px] font-bold text-muted-foreground/50">
+          <span>ENCRYPTED_LINE_V1</span>
+          <div className="flex gap-2">
+            <div className="w-3 h-1 rounded-full bg-primary/20" />
+            <div className="w-3 h-1 rounded-full bg-primary/20" />
+          </div>
+        </div>
       </div>
 
       {/* Terminal body */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto p-4 font-mono text-sm terminal-text scanlines"
+        className="flex-1 overflow-y-auto p-10 space-y-7 scrollbar-hide"
       >
         {entries.length === 0 ? (
-          <div className="text-muted-foreground flex items-center gap-2">
-            <span className="animate-cursor">▋</span>
-            <span>Awaiting mission parameters...</span>
+          <div className="h-full flex flex-col items-center justify-center opacity-20">
+            <Fingerprint className="w-20 h-20 text-muted-foreground mb-6 animate-pulse" />
+            <p className="text-sm tracking-[0.2em] uppercase font-black">Awaiting Authorized Input</p>
+            <p className="text-[10px] mt-2 text-muted-foreground/50">System State: Sovereign & Air-Gapped</p>
           </div>
         ) : (
           entries.map((entry) => <TerminalEntry key={entry.id} entry={entry} />)
@@ -98,14 +167,13 @@ export function Terminal({ entries }: TerminalProps) {
 
         {/* Cursor at bottom */}
         {entries.length > 0 && (
-          <div className="flex items-center gap-1 mt-2 text-primary">
-            <span className="animate-cursor">▋</span>
+          <div className="flex items-center gap-2 mt-4 text-primary/60">
+            <Radio className="w-3 h-3 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Stream Active</span>
+            <span className="animate-cursor ml-2">▋</span>
           </div>
         )}
       </div>
-
-      {/* Scanline overlay */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-background/20" />
     </div>
   );
 }
