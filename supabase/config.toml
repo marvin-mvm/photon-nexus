@@ -1,1 +1,4 @@
 project_id = "vihoyxlsvfjjizthsbzt"
+
+[functions.hexalobe-orchestrator]
+verify_jwt = false

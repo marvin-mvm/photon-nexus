@@ -114,6 +114,17 @@ export function useSoundSystem() {
     }, 50);
   }, [playTone]);
 
+  // Low hum for authentication/seed handshake
+  const playLowHum = useCallback(() => {
+    playTone({ frequency: 50, type: 'triangle', duration: 0.8, volume: 0.02 });
+  }, [playTone]);
+
+  // Success sound for authentication complete
+  const playSuccess = useCallback(() => {
+    playTone({ frequency: 400, type: 'sine', duration: 0.2, volume: 0.05 });
+    setTimeout(() => playTone({ frequency: 800, type: 'sine', duration: 0.3, volume: 0.05 }), 100);
+  }, [playTone]);
+
   const toggleMute = useCallback(() => {
     setIsMuted(prev => !prev);
   }, []);
@@ -143,5 +154,7 @@ export function useSoundSystem() {
     playShred,
     playAmbient,
     playMirrorMatch,
+    playLowHum,
+    playSuccess,
   };
 }

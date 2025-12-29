@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { LobeEntry, Shard, MindMapAsset, EntropySlice, MissionState, LobeType, SessionState } from '@/types/photon';
+import { LobeEntry, Shard, MindMapAsset, EntropySlice, MissionState, LobeType, SessionState, LogicChip, LogEntryType } from '@/types/photon';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -33,6 +33,12 @@ export function usePhotonState() {
     isArchiving: false,
   });
 
+  // Authentication state for Physical Seed handshake
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Selected asset for Audit Trail panel
+  const [selectedAsset, setSelectedAsset] = useState<MindMapAsset | null>(null);
+
   const consumeCredit = useCallback(() => {
     setCredits((prev) => Math.max(0, prev - 1));
   }, []);
@@ -41,12 +47,14 @@ export function usePhotonState() {
     setCredits(50);
   }, []);
 
-  const addEntry = useCallback((lobe: LobeType, message: string) => {
+  // Enhanced addEntry with type parameter
+  const addEntry = useCallback((lobe: LobeType, message: string, type?: LogEntryType) => {
     const entry: LobeEntry = {
       id: generateId(),
       lobe,
       message,
       timestamp: Date.now(),
+      type,
       isRevealing: true,
       revealed: false,
     };
@@ -74,7 +82,20 @@ export function usePhotonState() {
     return shard;
   }, []);
 
-  const addMindMap = useCallback((name: string, year: number, status: MindMapAsset['status'] = 'active', reason?: string) => {
+  // Enhanced addMindMap supporting both legacy and new Triple-Consensus format
+  const addMindMap = useCallback((
+    name: string, 
+    year: number, 
+    status: MindMapAsset['status'] = 'active', 
+    reason?: string,
+    options?: {
+      prompt?: string;
+      consensusWinner?: 'ALPHA' | 'BETA' | 'LEGACY';
+      evidenceDensity?: number;
+      chips?: LogicChip[];
+      l1Markdown?: string;
+    }
+  ) => {
     const asset: MindMapAsset = {
       id: generateId(),
       name,
@@ -82,6 +103,11 @@ export function usePhotonState() {
       year,
       reason,
       timestamp: Date.now(),
+      prompt: options?.prompt || name,
+      consensusWinner: options?.consensusWinner || 'LEGACY',
+      evidenceDensity: options?.evidenceDensity || Math.floor(Math.random() * 20) + 5,
+      chips: options?.chips || [],
+      l1Markdown: options?.l1Markdown,
     };
     setMindMaps((prev) => [...prev, asset]);
     return asset;
@@ -176,6 +202,7 @@ export function usePhotonState() {
     resetEntropy();
     resetMirror();
     resetSession();
+    setSelectedAsset(null);
     setMissionState({
       isRunning: false,
       currentPhase: 'IDLE',
@@ -196,6 +223,8 @@ export function usePhotonState() {
     isMirrorActive,
     credits,
     sessionState,
+    isAuthenticated,
+    selectedAsset,
     // Actions
     addEntry,
     addShard,
@@ -222,5 +251,8 @@ export function usePhotonState() {
     setIsArchiving,
     setCurrentExperienceId,
     resetSession,
+    // Auth & selection actions
+    setIsAuthenticated,
+    setSelectedAsset,
   };
 }

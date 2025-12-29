@@ -2,11 +2,17 @@ import { useCallback, useRef } from 'react';
 import { LobeType } from '@/types/photon';
 import { DemoStep, getDemoSequence, generateCustomSequence } from '@/lib/demoSequences';
 import type { Json } from '@/integrations/supabase/types';
+import type { SynthesisResult, ThoughtAsset } from '@/hooks/useSupabaseSession';
 
 interface UseMissionRunnerParams {
   addEntry: (lobe: LobeType, message: string, type?: string) => void;
   addShard: (data: string, layer?: number) => void;
-  addMindMap: (name: string, year: number, status?: 'active' | 'shredded' | 'promoted', reason?: string) => void;
+  addMindMap: (name: string, year: number, status?: 'active' | 'shredded' | 'promoted', reason?: string, options?: {
+    prompt?: string;
+    consensusWinner?: 'ALPHA' | 'BETA' | 'LEGACY';
+    evidenceDensity?: number;
+    l1Markdown?: string;
+  }) => void;
   consumeEntropy: (count?: number) => void;
   setActiveLobes: (lobes: LobeType[]) => void;
   setMissionPhase: (phase: string) => void;
@@ -37,6 +43,12 @@ interface UseMissionRunnerParams {
     logic_skeleton?: Json;
     status?: 'ACTIVE' | 'SHREDDED' | 'ARCHIVED';
   }) => Promise<string | null>;
+  synthesizeThought?: (
+    l1Markdown: string,
+    userPrompt: string,
+    shardPointers?: number[],
+    legacyExperienceId?: string
+  ) => Promise<SynthesisResult | null>;
   // Sound callbacks
   playLobeActivation: (index: number) => void;
   playDataIngest: () => void;
@@ -78,6 +90,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
     contextSaturation,
     archiveToExperience,
     insertExperience,
+    synthesizeThought,
     playLobeActivation,
     playDataIngest,
     playEntropyConsume,
@@ -291,9 +304,124 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
     timeoutsRef.current.push(endTimeout);
   }, [clearTimeouts, resetMirror, startMission, endMission, executeStep, contextSaturation, checkCalibrationThreshold]);
 
+  // NEW: Run Hexalobe-powered mission with real 6-lobe AI synthesis
+  const runHexalobeMission = useCallback(async (userPrompt: string, l1Markdown?: string) => {
+    if (!synthesizeThought) {
+      console.warn('[HEXALOBE] synthesizeThought not available, falling back to demo');
+      runCustomMission(userPrompt);
+      return;
+    }
+
+    clearTimeouts();
+    resetMirror();
+    calibrationTriggeredRef.current = false;
+    startMission();
+
+    // Phase 1: USER input received
+    addEntry('MIS', `MISSION RECEIVED: "${userPrompt}"`, 'USER');
+    setMissionPhase('INITIALIZING');
+    setMissionProgress(5);
+    playBeep();
+
+    // Phase 2: INGEST - show we're processing
+    setTimeout(() => {
+      addEntry('NUM', 'INGEST: Initializing 6-lobe parallel synthesis...', 'INGEST');
+      playDataIngest();
+      setMissionProgress(15);
+    }, 500);
+
+    // Activate all lobes in sequence
+    const lobeSequence: LobeType[] = ['NUM', 'DYN', 'CHR', 'SPA', 'EVI', 'MIS'];
+    lobeSequence.forEach((lobe, index) => {
+      setTimeout(() => {
+        addEntry(lobe, `${lobe} LOBE: Analyzing...`, 'INGEST');
+        setActiveLobes([lobe]);
+        playLobeActivation(index);
+        setMissionProgress(20 + (index * 10));
+      }, 1000 + (index * 400));
+    });
+
+    // Phase 3: Call the Hexalobe Edge Function
+    try {
+      const markdown = l1Markdown || `User Query: ${userPrompt}\n\nThis is a cognitive synthesis request requiring 6-lobe categorical analysis.`;
+      
+      setTimeout(() => {
+        addEntry('EVI', 'SYNTHESIS: Invoking Hexalobe Orchestrator...', 'INGEST');
+        setMissionProgress(75);
+      }, 3500);
+
+      const result = await synthesizeThought(markdown, userPrompt, []);
+
+      if (result?.success && result.thoughtAsset) {
+        const { thoughtAsset, lobeDetails } = result;
+
+        // Phase 4: ADJUDICATION
+        setTimeout(() => {
+          addEntry('MIS', `ADJUDICATION: Evidence Density = ${thoughtAsset.evidence_density}`, 'ADJUDICATION');
+          playConflict();
+          setMissionProgress(85);
+          incrementSaturation(15);
+        }, 4000);
+
+        // Phase 5: PROMOTION - display winner
+        setTimeout(() => {
+          addEntry('MIS', `CONSENSUS: ${thoughtAsset.consensus_winner} candidate promoted with density ${thoughtAsset.evidence_density}`, 'PROMOTION');
+          playResolution();
+          setMirrorMatch(Math.min(100, thoughtAsset.evidence_density * 3));
+          setIsMirrorActive(true);
+          setMissionProgress(95);
+          consumeCredit();
+        }, 4800);
+
+        // Phase 6: Create MindMap asset and archive
+        setTimeout(() => {
+          const assetName = `Thought_${Date.now()}`;
+          addMindMap(assetName, new Date().getFullYear(), 'promoted', 'Hexalobe synthesis complete', {
+            prompt: userPrompt,
+            consensusWinner: thoughtAsset.consensus_winner,
+            evidenceDensity: thoughtAsset.evidence_density,
+            l1Markdown: markdown,
+          });
+
+          // Insert to experience if available
+          if (insertExperience && sessionId) {
+            insertExperience({
+              session_id: sessionId,
+              title: `${assetName} - Hexalobe Synthesis`,
+              description: userPrompt,
+              handover_summary: `6-lobe parallel synthesis complete. Winner: ${thoughtAsset.consensus_winner}. Evidence density: ${thoughtAsset.evidence_density}. Lobes: NUM(${lobeDetails.NUM.evidence_density}), DYN(${lobeDetails.DYN.evidence_density}), CHR(${lobeDetails.CHR.evidence_density}), SPA(${lobeDetails.SPA.evidence_density}), EVI(${lobeDetails.EVI.evidence_density}), MIS(${lobeDetails.MIS.evidence_density}).`,
+              logic_skeleton: thoughtAsset as unknown as Json,
+              status: 'ACTIVE',
+            });
+          }
+
+          setMissionProgress(100);
+          setMissionPhase('COMPLETE');
+          endMission();
+        }, 5500);
+
+      } else {
+        throw new Error('Synthesis returned no result');
+      }
+
+    } catch (error) {
+      console.error('[HEXALOBE] Synthesis failed:', error);
+      addEntry('MIS', `ERROR: Synthesis failed - ${error instanceof Error ? error.message : 'Unknown error'}`, 'ALERT');
+      setMissionPhase('ERROR');
+      endMission();
+    }
+
+  }, [
+    synthesizeThought, runCustomMission, clearTimeouts, resetMirror, startMission, endMission,
+    addEntry, addMindMap, setActiveLobes, setMissionPhase, setMissionProgress, setMirrorMatch,
+    setIsMirrorActive, consumeCredit, incrementSaturation, insertExperience, sessionId,
+    playBeep, playDataIngest, playLobeActivation, playConflict, playResolution
+  ]);
+
   return {
     runMission,
     runCustomMission,
+    runHexalobeMission,
     clearTimeouts,
   };
 }

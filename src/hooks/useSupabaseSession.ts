@@ -11,6 +11,34 @@ export interface ExperienceInsert {
   status?: 'ACTIVE' | 'SHREDDED' | 'ARCHIVED';
 }
 
+export interface ThoughtAsset {
+  logic_num: Record<string, unknown>;
+  logic_dyn: Record<string, unknown>;
+  logic_chr: Record<string, unknown>;
+  logic_spa: Record<string, unknown>;
+  logic_evi: Record<string, unknown>;
+  logic_mis: Record<string, unknown>;
+  evidence_density: number;
+  anchor_shard_ids: number[];
+  structural_fingerprint: number[];
+  consensus_winner: 'ALPHA' | 'BETA' | 'LEGACY';
+}
+
+export interface LobeDetails {
+  NUM: { evidence_density: number; shard_count: number };
+  DYN: { evidence_density: number; shard_count: number };
+  CHR: { evidence_density: number; shard_count: number };
+  SPA: { evidence_density: number; shard_count: number };
+  EVI: { evidence_density: number; shard_count: number };
+  MIS: { evidence_density: number; shard_count: number };
+}
+
+export interface SynthesisResult {
+  success: boolean;
+  thoughtAsset: ThoughtAsset;
+  lobeDetails: LobeDetails;
+}
+
 export function useSupabaseSession() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -198,6 +226,35 @@ export function useSupabaseSession() {
     }
   }, []);
 
+  // Hexalobe Orchestrator - Synthesize Thought Asset via 6-Lobe parallel processing
+  const synthesizeThought = useCallback(async (
+    l1Markdown: string,
+    userPrompt: string,
+    shardPointers: number[] = [],
+    legacyExperienceId?: string
+  ): Promise<SynthesisResult | null> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('hexalobe-orchestrator', {
+        body: { l1Markdown, userPrompt, shardPointers, legacyExperienceId }
+      });
+
+      if (invokeError) throw invokeError;
+      if (!data?.success) throw new Error(data?.error || 'Synthesis failed');
+
+      return data as SynthesisResult;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to synthesize thought';
+      setError(errorMessage);
+      console.error('Synthesis error:', err);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   return {
     isLoading,
     error,
@@ -208,5 +265,6 @@ export function useSupabaseSession() {
     getShardCount,
     insertExperience,
     getUserCredits,
+    synthesizeThought,
   };
 }

@@ -1,10 +1,10 @@
-import { LobeType } from '@/types/photon';
+import { LobeType, LogEntryType } from '@/types/photon';
 
 export interface DemoStep {
   delay: number;
   lobe: LobeType;
   message: string;
-  type?: 'XOR' | 'MEM' | 'SELF' | 'SHRED' | 'SUCCESS' | 'CONFLICT' | 'MIRROR';
+  type?: LogEntryType;
   action?: 'addShards' | 'consumeEntropy' | 'conflict' | 'shred' | 'promote' | 'activateLobe' | 'deactivateLobe' | 'mirror';
   actionData?: any;
 }
@@ -95,19 +95,37 @@ export function getDemoSequence(missionId: string): DemoStep[] {
   }
 }
 
+// Triple-Consensus sequence generator for custom missions
 export function generateCustomSequence(problem: string): DemoStep[] {
   return [
-    { delay: 500, lobe: 'MIS', message: `MISSION RECEIVED: ${problem}` },
-    { delay: 600, lobe: 'NUM', message: 'Parsing problem parameters...', action: 'activateLobe', actionData: ['MIS', 'NUM'] },
-    { delay: 500, lobe: 'CHR', message: 'Establishing temporal context...', action: 'addShards', actionData: 16 },
-    { delay: 700, lobe: 'SPA', message: 'Mapping solution space topology...', action: 'activateLobe', actionData: ['NUM', 'SPA'] },
-    { delay: 500, lobe: 'DYN', message: 'Analyzing dynamic constraints...', action: 'consumeEntropy', actionData: 4 },
-    { delay: 800, lobe: 'EVI', message: 'Gathering supporting evidence...', action: 'addShards', actionData: 24 },
-    { delay: 600, lobe: 'NUM', message: 'PROPOSAL: Apply heuristic optimization', action: 'activateLobe', actionData: ['EVI', 'NUM'] },
-    { delay: 400, lobe: 'DYN', message: 'SUPPORT: Convergence criteria met', action: 'activateLobe', actionData: ['EVI', 'NUM', 'DYN'] },
-    { delay: 500, lobe: 'CHR', message: 'CONSENSUS: Solution pathway identified', action: 'addShards', actionData: 20 },
-    { delay: 700, lobe: 'MIS', message: `MISSION COMPLETE: "${problem}" analyzed`, action: 'promote', actionData: 'MMP-CUSTOM' },
-    { delay: 400, lobe: 'EVI', message: 'Total shards ingested: 60 | New insights: 1' },
-    { delay: 500, lobe: 'MIS', message: '✓ Awaiting next mission parameters...', action: 'deactivateLobe', actionData: [] },
+    // USER input is added separately in handleQuery
+    { delay: 300, lobe: 'MIS', message: `MISSION RECEIVED: ${problem}` },
+    
+    // L1-L2 Ingestion Phase
+    { delay: 500, lobe: 'EVI', message: 'L1 RECONSTRUCTION: Cleaning raw shards and formatting as High-Fidelity Markdown...', type: 'INGEST' },
+    { delay: 400, lobe: 'NUM', message: 'L2 GLOSSARY: Extracting deterministic variables and technical terms from L1...', type: 'INGEST', action: 'addShards', actionData: 12 },
+    
+    // Triple-Consensus Generation
+    { delay: 600, lobe: 'MIS', message: 'TRIPLE-CONSENSUS TRIGGERED: Generating Alpha & Beta Interpretations...', action: 'activateLobe', actionData: ['MIS', 'NUM'] },
+    { delay: 400, lobe: 'NUM', message: 'Numeric Lobe: Extracting constants and risk ratios from L2 Registry.', action: 'activateLobe', actionData: ['MIS', 'NUM', 'EVI'] },
+    
+    // Neural Mirror Scan
+    { delay: 700, lobe: 'MIS', message: 'Neural Mirror: Probing HNSW Index... 88% Similarity Match found.', type: 'MIRROR', action: 'mirror', actionData: { percentage: 88 } },
+    
+    // Parallel Lobe Processing
+    { delay: 500, lobe: 'SPA', message: 'Spatial Lobe: Mapping solution topology...', action: 'activateLobe', actionData: ['NUM', 'SPA'] },
+    { delay: 400, lobe: 'DYN', message: 'Dynamic Lobe: Analyzing causal momentum shifts...', action: 'consumeEntropy', actionData: 4 },
+    { delay: 500, lobe: 'CHR', message: 'Chrono Lobe: Temporal anchors established...', action: 'addShards', actionData: 16 },
+    { delay: 400, lobe: 'EVI', message: 'Evidence Lobe: Gathering supporting L1 shards...', action: 'addShards', actionData: 20 },
+    
+    // Adjudication
+    { delay: 800, lobe: 'MIS', message: 'ADJUDICATION COMPLETE: [Winner: ALPHA] chosen via Evidence Density (links: 18 vs 9).', type: 'ADJUDICATION', action: 'activateLobe', actionData: ['NUM', 'DYN', 'CHR', 'SPA', 'EVI', 'MIS'] },
+    
+    // Promotion
+    { delay: 600, lobe: 'MIS', message: 'THOUGHT ASSET CREATED: New Logic Chip promoted to instinct table.', type: 'PROMOTION', action: 'promote', actionData: 'PHO-NEW' },
+    
+    // Completion
+    { delay: 500, lobe: 'EVI', message: 'Total shards ingested: 48 | New Logic Chips: 4' },
+    { delay: 400, lobe: 'MIS', message: '✓ Sovereign Logic Skeleton built. Awaiting next instruction...', action: 'deactivateLobe', actionData: [] },
   ];
 }

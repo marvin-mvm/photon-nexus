@@ -2,12 +2,16 @@ import { Cpu, RefreshCw, TrendingUp, Layers, ShieldCheck, Brain, LucideIcon } fr
 
 export type LobeType = 'NUM' | 'DYN' | 'CHR' | 'SPA' | 'EVI' | 'MIS';
 
+export type LogEntryType = 
+  | 'XOR' | 'MEM' | 'SELF' | 'SHRED' | 'SUCCESS' | 'CONFLICT' | 'MIRROR' | 'CALIBRATION' | 'SYSTEM'
+  | 'USER' | 'ADJUDICATION' | 'PROMOTION' | 'ALERT' | 'INGEST';
+
 export interface LobeEntry {
   id: string;
   lobe: LobeType;
   message: string;
   timestamp: number;
-  type?: 'XOR' | 'MEM' | 'SELF' | 'SHRED' | 'SUCCESS' | 'CONFLICT' | 'MIRROR' | 'CALIBRATION' | 'SYSTEM';
+  type?: LogEntryType;
   isRevealing?: boolean;
   revealed?: boolean;
 }
@@ -19,13 +23,27 @@ export interface Shard {
   createdAt: number;
 }
 
+// Logic Chip for 6-lobe decomposition
+export interface LogicChip {
+  id: string;
+  type: LobeType;
+  logic: string;
+  shardRefs: number[];
+}
+
+// Enhanced MindMapAsset for Triple-Consensus architecture
 export interface MindMapAsset {
   id: string;
   name: string;
+  prompt?: string;
+  consensusWinner?: 'ALPHA' | 'BETA' | 'LEGACY';
+  evidenceDensity?: number;
+  chips?: LogicChip[];
   status: 'active' | 'shredded' | 'promoted';
   year: number;
   reason?: string;
   timestamp: number;
+  l1Markdown?: string; // Physical proof storage
 }
 
 export interface EntropySlice {

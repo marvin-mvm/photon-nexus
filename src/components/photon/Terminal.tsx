@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { LobeEntry, LOBE_CONFIG } from '@/types/photon';
 import { cn } from '@/lib/utils';
-import { Terminal as TerminalIcon, Radio, AlertTriangle, Fingerprint, Workflow } from 'lucide-react';
+import { 
+  Terminal as TerminalIcon, Radio, AlertTriangle, Fingerprint, Workflow,
+  Database, Scale, Megaphone, User, Send
+} from 'lucide-react';
 
 interface TerminalProps {
   entries: LobeEntry[];
   contextSaturation?: number;
+  isAuthenticated?: boolean;
+  isThinking?: boolean;
+  onSubmit?: (message: string) => void;
 }
 
 // XOR text scramble effect with premium character set
@@ -75,20 +81,64 @@ function CalibrationBridge({ entry }: { entry: LobeEntry }) {
   );
 }
 
+// Get icon for entry type
+function getEntryIcon(type?: string) {
+  switch (type) {
+    case 'INGEST': return Database;
+    case 'ADJUDICATION': return Scale;
+    case 'PROMOTION': return Megaphone;
+    case 'USER': return User;
+    case 'ALERT': return AlertTriangle;
+    default: return null;
+  }
+}
+
 function TerminalEntry({ entry }: { entry: LobeEntry }) {
   const config = LOBE_CONFIG[entry.lobe];
   const Icon = config.icon;
   
   const isConflict = entry.type === 'CONFLICT' || entry.type === 'SHRED';
-  const isSuccess = entry.type === 'SUCCESS';
+  const isSuccess = entry.type === 'SUCCESS' || entry.type === 'PROMOTION';
   const isSelf = entry.type === 'SELF';
   const isMirror = entry.type === 'MIRROR';
   const isSystem = entry.type === 'SYSTEM' || entry.type === 'CALIBRATION';
+  const isUser = entry.type === 'USER';
+  const isIngest = entry.type === 'INGEST';
+  const isAdjudication = entry.type === 'ADJUDICATION';
+  const isAlert = entry.type === 'ALERT';
 
   // Render special Calibration Bridge for SYSTEM entries
   if (isSystem) {
     return <CalibrationBridge entry={entry} />;
   }
+
+  // Render USER entry with distinct styling
+  if (isUser) {
+    return (
+      <div className="flex gap-6 animate-slide-in justify-end">
+        <div className="flex-1 min-w-0 max-w-[80%]">
+          <div className="flex items-center gap-3 mb-2 justify-end">
+            <span className="text-[9px] text-muted-foreground/50 font-mono">
+              {new Date(entry.timestamp).toLocaleTimeString()}
+            </span>
+            <span className="text-[10px] font-black text-primary flex items-center gap-1">
+              <User className="w-3 h-3" /> USER INPUT
+            </span>
+          </div>
+          <div className="p-5 rounded-3xl border bg-primary/10 border-primary/30 text-foreground">
+            {entry.message}
+          </div>
+        </div>
+        <div className="flex-none">
+          <div className="p-3 rounded-2xl border border-primary/30 bg-primary/10">
+            <User className="w-5 h-5 text-primary" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const TypeIcon = getEntryIcon(entry.type);
 
   return (
     <div className="flex gap-6 animate-slide-in">
@@ -122,7 +172,27 @@ function TerminalEntry({ entry }: { entry: LobeEntry }) {
           )}
           {isMirror && (
             <span className="text-[10px] font-black text-primary flex items-center gap-1">
-              <Radio className="w-3 h-3" /> Intuitive Memory Recall
+              <Radio className="w-3 h-3" /> Neural Mirror Match
+            </span>
+          )}
+          {isIngest && TypeIcon && (
+            <span className="text-[10px] font-black text-lobe-evidence flex items-center gap-1">
+              <TypeIcon className="w-3 h-3" /> L1-L2 Ingestion
+            </span>
+          )}
+          {isAdjudication && TypeIcon && (
+            <span className="text-[10px] font-black text-lobe-dynamic flex items-center gap-1">
+              <TypeIcon className="w-3 h-3" /> Consensus Decision
+            </span>
+          )}
+          {entry.type === 'PROMOTION' && TypeIcon && (
+            <span className="text-[10px] font-black text-lobe-chrono flex items-center gap-1">
+              <TypeIcon className="w-3 h-3" /> Asset Created
+            </span>
+          )}
+          {isAlert && (
+            <span className="text-[10px] font-black text-destructive flex items-center gap-1 animate-pulse">
+              <AlertTriangle className="w-3 h-3" /> THRESHOLD ALERT
             </span>
           )}
           
@@ -138,7 +208,11 @@ function TerminalEntry({ entry }: { entry: LobeEntry }) {
           isSuccess && 'bg-lobe-chrono/10 border-lobe-chrono/30 text-lobe-chrono font-bold',
           isSelf && 'bg-white/5 border-white/10 text-foreground italic shadow-inner',
           isMirror && 'bg-primary/15 border-primary/40 text-primary shadow-[0_0_15px_hsl(var(--primary)/0.15)]',
-          !isConflict && !isSuccess && !isSelf && !isMirror && 'bg-black/40 border-white/5 text-foreground/70'
+          isIngest && 'bg-lobe-evidence/10 border-lobe-evidence/30 text-lobe-evidence',
+          isAdjudication && 'bg-lobe-dynamic/10 border-lobe-dynamic/30 text-lobe-dynamic',
+          isAlert && 'bg-destructive/15 border-destructive/40 text-destructive animate-pulse',
+          !isConflict && !isSuccess && !isSelf && !isMirror && !isIngest && !isAdjudication && !isAlert && 
+            'bg-black/40 border-white/5 text-foreground/70'
         )}>
           {entry.type === 'XOR' ? (
             <XORText text={entry.message} isRevealing={entry.isRevealing || false} />
@@ -151,8 +225,15 @@ function TerminalEntry({ entry }: { entry: LobeEntry }) {
   );
 }
 
-export function Terminal({ entries, contextSaturation = 0 }: TerminalProps) {
+export function Terminal({ 
+  entries, 
+  contextSaturation = 0, 
+  isAuthenticated = true,
+  isThinking = false,
+  onSubmit 
+}: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [inputValue, setInputValue] = useState('');
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -166,6 +247,13 @@ export function Terminal({ entries, contextSaturation = 0 }: TerminalProps) {
     if (contextSaturation >= 85) return 'text-destructive';
     if (contextSaturation >= 50) return 'text-lobe-spatial';
     return 'text-lobe-chrono';
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputValue.trim() || !isAuthenticated || isThinking) return;
+    onSubmit?.(inputValue.trim());
+    setInputValue('');
   };
 
   return (
@@ -193,7 +281,7 @@ export function Terminal({ entries, contextSaturation = 0 }: TerminalProps) {
               contextSaturation >= 50 ? 'bg-lobe-spatial' : 'bg-lobe-chrono'
             )} />
             <span className={cn('uppercase tracking-wider', getSaturationColor())}>
-              Context Saturation: {contextSaturation}%
+              Context: {contextSaturation}%
             </span>
           </div>
           <span className="text-muted-foreground/50">ENCRYPTED_LINE_V1</span>
@@ -208,8 +296,8 @@ export function Terminal({ entries, contextSaturation = 0 }: TerminalProps) {
         {entries.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center opacity-20">
             <Fingerprint className="w-20 h-20 text-muted-foreground mb-6 animate-pulse" />
-            <p className="text-sm tracking-[0.2em] uppercase font-black">Awaiting Authorized Input</p>
-            <p className="text-[10px] mt-2 text-muted-foreground/50">System State: Sovereign & Air-Gapped</p>
+            <p className="text-sm tracking-[0.2em] uppercase font-black">System Awaiting Instruction</p>
+            <p className="text-[10px] mt-2 text-muted-foreground/50">HNSW Vector Search Active</p>
           </div>
         ) : (
           entries.map((entry) => <TerminalEntry key={entry.id} entry={entry} />)
@@ -224,6 +312,29 @@ export function Terminal({ entries, contextSaturation = 0 }: TerminalProps) {
           </div>
         )}
       </div>
+
+      {/* Command Input */}
+      {onSubmit && (
+        <div className="p-6 border-t border-white/5">
+          <form onSubmit={handleSubmit} className="relative">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              disabled={!isAuthenticated || isThinking}
+              placeholder={isAuthenticated ? "Initiate Thought Construction..." : "Ground entropy to begin..."}
+              className="w-full bg-black/60 border border-white/10 rounded-[2.5rem] py-5 px-8 pr-16 text-sm focus:outline-none focus:border-primary/50 transition-all disabled:opacity-30 placeholder:text-muted-foreground/40"
+            />
+            <button
+              type="submit"
+              disabled={!isAuthenticated || isThinking || !inputValue.trim()}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-3 rounded-full bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-30 disabled:hover:bg-primary/20 transition-all"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
