@@ -16,35 +16,71 @@ export type Database = {
     Tables: {
       experience: {
         Row: {
+          anchor_shard_ids: number[] | null
+          consensus_winner: string | null
           created_at: string | null
           description: string | null
+          evidence_density: number | null
           handover_summary: string | null
           id: string
+          logic_chr: Json | null
+          logic_dyn: Json | null
+          logic_evi: Json | null
+          logic_mis: Json | null
+          logic_num: Json | null
           logic_skeleton: Json | null
+          logic_spa: Json | null
+          physical_seed_label: string | null
+          prompt_origin: string | null
           session_id: string | null
           status: string | null
+          structural_fingerprint: string | null
           title: string | null
           user_id: string
         }
         Insert: {
+          anchor_shard_ids?: number[] | null
+          consensus_winner?: string | null
           created_at?: string | null
           description?: string | null
+          evidence_density?: number | null
           handover_summary?: string | null
           id?: string
+          logic_chr?: Json | null
+          logic_dyn?: Json | null
+          logic_evi?: Json | null
+          logic_mis?: Json | null
+          logic_num?: Json | null
           logic_skeleton?: Json | null
+          logic_spa?: Json | null
+          physical_seed_label?: string | null
+          prompt_origin?: string | null
           session_id?: string | null
           status?: string | null
+          structural_fingerprint?: string | null
           title?: string | null
           user_id: string
         }
         Update: {
+          anchor_shard_ids?: number[] | null
+          consensus_winner?: string | null
           created_at?: string | null
           description?: string | null
+          evidence_density?: number | null
           handover_summary?: string | null
           id?: string
+          logic_chr?: Json | null
+          logic_dyn?: Json | null
+          logic_evi?: Json | null
+          logic_mis?: Json | null
+          logic_num?: Json | null
           logic_skeleton?: Json | null
+          logic_spa?: Json | null
+          physical_seed_label?: string | null
+          prompt_origin?: string | null
           session_id?: string | null
           status?: string | null
+          structural_fingerprint?: string | null
           title?: string | null
           user_id?: string
         }
@@ -102,7 +138,11 @@ export type Database = {
           current_experience_id: string | null
           dialogue_logs: Json | null
           id: string
+          is_calibrating: boolean | null
+          parent_experience_id: string | null
+          status: string | null
           title: string | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -111,7 +151,11 @@ export type Database = {
           current_experience_id?: string | null
           dialogue_logs?: Json | null
           id?: string
+          is_calibrating?: boolean | null
+          parent_experience_id?: string | null
+          status?: string | null
           title?: string | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -120,13 +164,24 @@ export type Database = {
           current_experience_id?: string | null
           dialogue_logs?: Json | null
           id?: string
+          is_calibrating?: boolean | null
+          parent_experience_id?: string | null
+          status?: string | null
           title?: string | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "nexus_missions_current_experience_id_fkey"
             columns: ["current_experience_id"]
+            isOneToOne: false
+            referencedRelation: "experience"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nexus_missions_parent_experience_id_fkey"
+            columns: ["parent_experience_id"]
             isOneToOne: false
             referencedRelation: "experience"
             referencedColumns: ["id"]
@@ -202,6 +257,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profiles: {
+        Row: {
+          api_key: string | null
+          credit_balance: number | null
+          device_signature: string | null
+          id: string
+          last_heartbeat: string | null
+          subscription_status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          credit_balance?: number | null
+          device_signature?: string | null
+          id: string
+          last_heartbeat?: string | null
+          subscription_status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          credit_balance?: number | null
+          device_signature?: string | null
+          id?: string
+          last_heartbeat?: string | null
+          subscription_status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -210,6 +295,20 @@ export type Database = {
       decommission_session: {
         Args: { target_session_id: string }
         Returns: undefined
+      }
+      match_thought_intent: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_vector: string
+        }
+        Returns: {
+          handover_summary: string
+          id: string
+          logic_mis: Json
+          similarity: number
+          title: string
+        }[]
       }
     }
     Enums: {
