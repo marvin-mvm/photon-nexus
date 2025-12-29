@@ -36,6 +36,7 @@ export type Database = {
           status: string | null
           structural_fingerprint: string | null
           title: string | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -59,6 +60,7 @@ export type Database = {
           status?: string | null
           structural_fingerprint?: string | null
           title?: string | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -82,6 +84,7 @@ export type Database = {
           status?: string | null
           structural_fingerprint?: string | null
           title?: string | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -130,6 +133,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      l2_glossary: {
+        Row: {
+          created_at: string | null
+          id: string
+          shard_pointer: number
+          user_id: string
+          var_name: string
+          var_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          shard_pointer: number
+          user_id: string
+          var_name: string
+          var_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          shard_pointer?: number
+          user_id?: string
+          var_name?: string
+          var_type?: string | null
+        }
+        Relationships: []
       }
       nexus_missions: {
         Row: {
@@ -309,6 +339,14 @@ export type Database = {
           similarity: number
           title: string
         }[]
+      }
+      upsert_l2_variable: {
+        Args: {
+          p_shard_pointer: number
+          p_var_name: string
+          p_var_type: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
