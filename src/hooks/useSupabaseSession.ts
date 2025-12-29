@@ -22,6 +22,8 @@ export interface ThoughtAsset {
   anchor_shard_ids: number[];
   structural_fingerprint: number[];
   consensus_winner: 'ALPHA' | 'BETA' | 'LEGACY';
+  handover_summary?: string;
+  reasoning?: string;
 }
 
 export interface LobeDetails {
@@ -37,6 +39,12 @@ export interface SynthesisResult {
   success: boolean;
   thoughtAsset: ThoughtAsset;
   lobeDetails: LobeDetails;
+  verdict?: {
+    winner: 'ALPHA' | 'BETA' | 'LEGACY';
+    reasoning: string;
+    handover_summary: string;
+  };
+  legacyShredded?: string | null;
 }
 
 export function useSupabaseSession() {

@@ -1,3 +1,11 @@
+/**
+ * PHOTON NEXUS: THE MATA PROTOCOL (v11.0)
+ * Edge Function: Hexalobe Supreme Court (Adjudicator)
+ * 
+ * MISSION: Execute 6-Lobe Parallel Synthesis, Triple-Consensus (Alpha vs Beta vs Legacy),
+ * and Evidence-based Adjudication using Gemini 2.5 Flash with Judicial Instructions.
+ */
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -124,7 +132,7 @@ interface LobeOutput {
   shard_pointers: number[];
 }
 
-interface ThoughtAsset {
+interface HexalobeCandidate {
   logic_num: Record<string, unknown>;
   logic_dyn: Record<string, unknown>;
   logic_chr: Record<string, unknown>;
@@ -132,12 +140,64 @@ interface ThoughtAsset {
   logic_evi: Record<string, unknown>;
   logic_mis: Record<string, unknown>;
   evidence_density: number;
-  anchor_shard_ids: number[];
   structural_fingerprint: number[];
-  consensus_winner: 'ALPHA' | 'BETA' | 'LEGACY';
+  anchor_shard_ids: number[];
 }
 
-// Call Gemini API for a specific lobe
+interface AdjudicationVerdict {
+  winner: 'ALPHA' | 'BETA' | 'LEGACY';
+  reasoning: string;
+  handover_summary: string;
+}
+
+interface ThoughtAsset extends HexalobeCandidate {
+  consensus_winner: 'ALPHA' | 'BETA' | 'LEGACY';
+  handover_summary: string;
+  reasoning: string;
+}
+
+/**
+ * Exponential Backoff Utility for Gemini API Calls
+ * 5 retries with delays: 1s, 2s, 4s, 8s, 16s
+ */
+async function callGeminiWithRetry(payload: object, model: string = 'gemini-2.0-flash'): Promise<any> {
+  let delay = 1000;
+  
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }
+      );
+      
+      if (response.ok) {
+        return await response.json();
+      }
+      
+      // Log error for non-retryable status codes
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        const errorText = await response.text();
+        console.error(`[GEMINI] Non-retryable error (${response.status}):`, errorText);
+        throw new Error(`Gemini API error: ${response.status}`);
+      }
+    } catch (e) {
+      if (attempt === 4) throw e; // Rethrow on last attempt
+    }
+    
+    await new Promise(r => setTimeout(r, delay));
+    delay *= 2;
+  }
+  
+  throw new Error("Adjudication Service Unavailable: 5 Retries Exhausted.");
+}
+
+/**
+ * Run a single lobe analysis
+ */
 async function runLobe(
   lobeType: keyof typeof LOBE_PROMPTS,
   l1Markdown: string,
@@ -146,36 +206,23 @@ async function runLobe(
   const systemPrompt = LOBE_PROMPTS[lobeType];
   
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: `${systemPrompt}\n\n---\nUSER MISSION: ${userPrompt}\n\n---\nL1 MARKDOWN TO ANALYZE:\n${l1Markdown}` }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 1024,
-            responseMimeType: "application/json"
-          }
-        })
+    const payload = {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: `${systemPrompt}\n\n---\nUSER MISSION: ${userPrompt}\n\n---\nL1 MARKDOWN TO ANALYZE:\n${l1Markdown}` }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 1024,
+        responseMimeType: "application/json"
       }
-    );
+    };
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[${lobeType}] Gemini API error:`, errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await callGeminiWithRetry(payload);
     const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (!textContent) {
@@ -183,7 +230,6 @@ async function runLobe(
       return { logic: {}, evidence_density: 0, shard_pointers: [] };
     }
 
-    // Parse JSON response
     const parsed = JSON.parse(textContent);
     return {
       logic: parsed.logic || {},
@@ -196,46 +242,156 @@ async function runLobe(
   }
 }
 
-// Generate 9D Structural Fingerprint
-function generate9DFingerprint(lobeOutputs: LobeOutput[], shards: number[]): number[] {
-  return [
-    lobeOutputs[0].evidence_density / 10, // NUM weight
-    lobeOutputs[1].evidence_density / 10, // DYN weight
-    lobeOutputs[2].evidence_density / 10, // CHR weight
-    lobeOutputs[3].evidence_density / 10, // SPA weight
-    lobeOutputs[4].evidence_density / 10, // EVI weight
-    lobeOutputs[5].evidence_density / 10, // MIS weight
-    4.0,                                   // Fixed layer depth
-    shards.length > 0 ? Math.min(...shards) : 0,  // Shard range start
-    shards.length > 0 ? Math.max(...shards) : 0   // Shard range end
+/**
+ * Execute full Hexalobe synthesis (6 parallel lobes)
+ */
+async function executeHexalobe(
+  l1Markdown: string, 
+  userPrompt: string, 
+  shardPointers: number[]
+): Promise<HexalobeCandidate> {
+  const [num, dyn, chr, spa, evi, mis] = await Promise.all([
+    runLobe('NUM', l1Markdown, userPrompt),
+    runLobe('DYN', l1Markdown, userPrompt),
+    runLobe('CHR', l1Markdown, userPrompt),
+    runLobe('SPA', l1Markdown, userPrompt),
+    runLobe('EVI', l1Markdown, userPrompt),
+    runLobe('MIS', l1Markdown, userPrompt)
+  ]);
+
+  const lobeOutputs = [num, dyn, chr, spa, evi, mis];
+  
+  // Aggregate all shard pointers
+  const allShardPointers = new Set([
+    ...num.shard_pointers,
+    ...dyn.shard_pointers,
+    ...chr.shard_pointers,
+    ...spa.shard_pointers,
+    ...evi.shard_pointers,
+    ...mis.shard_pointers
+  ]);
+
+  // Total evidence density
+  const totalDensity = num.evidence_density + dyn.evidence_density + 
+                       chr.evidence_density + spa.evidence_density + 
+                       evi.evidence_density + mis.evidence_density;
+
+  // 9D Structural Fingerprint
+  const fingerprint = [
+    num.evidence_density / 10,
+    dyn.evidence_density / 10,
+    chr.evidence_density / 10,
+    spa.evidence_density / 10,
+    evi.evidence_density / 10,
+    mis.evidence_density / 10,
+    4.0, // Fixed layer depth
+    shardPointers.length > 0 ? Math.min(...shardPointers) : 0,
+    shardPointers.length > 0 ? Math.max(...shardPointers) : 0
   ];
+
+  return {
+    logic_num: num.logic,
+    logic_dyn: dyn.logic,
+    logic_chr: chr.logic,
+    logic_spa: spa.logic,
+    logic_evi: evi.logic,
+    logic_mis: mis.logic,
+    evidence_density: totalDensity,
+    structural_fingerprint: fingerprint,
+    anchor_shard_ids: Array.from(allShardPointers)
+  };
 }
 
-// Triple-Consensus Adjudication
-function adjudicateConsensus(
-  alpha: { evidence_density: number },
-  beta: { evidence_density: number },
-  legacy: { evidence_density: number } | null
-): 'ALPHA' | 'BETA' | 'LEGACY' {
-  let winner: 'ALPHA' | 'BETA' | 'LEGACY' = 
-    alpha.evidence_density >= beta.evidence_density ? 'ALPHA' : 'BETA';
-  
-  if (legacy && legacy.evidence_density > 
-      (winner === 'ALPHA' ? alpha.evidence_density : beta.evidence_density)) {
-    winner = 'LEGACY';
-  }
+/**
+ * The Judicial Logic (Supreme Court Implementation)
+ * Uses Gemini 2.5 Flash for structured adjudication
+ */
+async function adjudicate(
+  alpha: HexalobeCandidate,
+  beta: HexalobeCandidate,
+  legacy: { logic_mis: unknown; evidence_density: number } | null,
+  userPrompt: string
+): Promise<AdjudicationVerdict> {
+  const systemPrompt = `
+JUDICIAL INSTRUCTION: You are the Chief Justice of the Mata Protocol Supreme Court.
+Your mission is to adjudicate between three candidates of logic for a specific query.
 
-  return winner;
+USER QUERY: "${userPrompt}"
+
+CANDIDATE ALPHA (Granular 10-Shard Detail):
+- Logic Lenses: NUM=${JSON.stringify(alpha.logic_num)}, DYN=${JSON.stringify(alpha.logic_dyn)}, MIS=${JSON.stringify(alpha.logic_mis)}
+- Evidence Density: ${alpha.evidence_density} shards physically linked.
+
+CANDIDATE BETA (Broad 15-Shard Context):
+- Logic Lenses: NUM=${JSON.stringify(beta.logic_num)}, DYN=${JSON.stringify(beta.logic_dyn)}, MIS=${JSON.stringify(beta.logic_mis)}
+- Evidence Density: ${beta.evidence_density} shards physically linked.
+
+CANDIDATE LEGACY (Historical Wisdom):
+${legacy ? `- Logic Lenses: MIS=${JSON.stringify(legacy.logic_mis)}\n- Evidence Density: ${legacy.evidence_density} shards` : "No historical match found."}
+
+ADJUDICATION PROTOCOL:
+1. Identify logical contradictions between Fresh (Alpha/Beta) and Legacy.
+2. Prioritize candidates with the highest 'Evidence Density' (Connectivity to L0 Shards).
+3. If Legacy is grounded in fewer shards or outdated variables, mark it for SHREDDING.
+4. Synthesize the 'Winner' into a Handover Token for the final translation session.
+
+OUTPUT SCHEMA:
+Respond only in valid JSON:
+{
+  "winner": "ALPHA" | "BETA" | "LEGACY",
+  "reasoning": "Brief technical verdict",
+  "handover_summary": "The distilled essence of the winning logic for the translator"
+}`;
+
+  const payload = {
+    contents: [{ parts: [{ text: "Proceed with adjudication." }] }],
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    generationConfig: { 
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          winner: { type: "STRING", enum: ["ALPHA", "BETA", "LEGACY"] },
+          reasoning: { type: "STRING" },
+          handover_summary: { type: "STRING" }
+        },
+        required: ["winner", "reasoning", "handover_summary"]
+      }
+    }
+  };
+
+  try {
+    // Use gemini-2.5-flash-preview for structured adjudication
+    const result = await callGeminiWithRetry(payload, 'gemini-2.5-flash-preview-05-20');
+    const textContent = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!textContent) {
+      throw new Error('No adjudication content returned');
+    }
+    
+    return JSON.parse(textContent);
+  } catch (error) {
+    console.error('[ADJUDICATION] Error:', error);
+    // Fallback: determine winner by evidence density
+    let winner: 'ALPHA' | 'BETA' | 'LEGACY' = alpha.evidence_density >= beta.evidence_density ? 'ALPHA' : 'BETA';
+    if (legacy && legacy.evidence_density > (winner === 'ALPHA' ? alpha.evidence_density : beta.evidence_density)) {
+      winner = 'LEGACY';
+    }
+    return {
+      winner,
+      reasoning: `Fallback adjudication based on evidence density. Error: ${error instanceof Error ? error.message : 'Unknown'}`,
+      handover_summary: `Winner selected by evidence density comparison: ${winner}`
+    };
+  }
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { l1Markdown, userPrompt, shardPointers = [], legacyExperienceId } = await req.json();
+    const { l1Markdown, userPrompt, shardPointers = [], currentFingerprint } = await req.json();
 
     if (!l1Markdown || !userPrompt) {
       return new Response(
@@ -251,104 +407,110 @@ serve(async (req) => {
       );
     }
 
-    console.log('[HEXALOBE] Initiating 6-Lobe Parallel Synthesis...');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    console.log('[HEXALOBE] Initiating Supreme Court Adjudication...');
     console.log('[HEXALOBE] User Prompt:', userPrompt.substring(0, 100) + '...');
-    console.log('[HEXALOBE] Shard Pointers:', shardPointers);
 
-    // Execute all 6 lobes in parallel
-    const [num, dyn, chr, spa, evi, mis] = await Promise.all([
-      runLobe('NUM', l1Markdown, userPrompt),
-      runLobe('DYN', l1Markdown, userPrompt),
-      runLobe('CHR', l1Markdown, userPrompt),
-      runLobe('SPA', l1Markdown, userPrompt),
-      runLobe('EVI', l1Markdown, userPrompt),
-      runLobe('MIS', l1Markdown, userPrompt)
-    ]);
+    // ========== PHASE 1: 9D MIRROR SEARCH FOR LEGACY ==========
+    let legacyMatch: { id: string; logic_mis: unknown; evidence_density: number; title: string } | null = null;
+    
+    if (currentFingerprint && Array.isArray(currentFingerprint) && currentFingerprint.length === 9) {
+      console.log('[HEXALOBE] Searching for Legacy experience via 9D Mirror...');
+      const { data: matches, error: matchError } = await supabase.rpc('match_thought_intent', {
+        query_vector: currentFingerprint,
+        match_threshold: 0.75,
+        match_count: 1
+      });
 
-    console.log('[HEXALOBE] All lobes completed');
-    console.log('[HEXALOBE] Evidence densities:', {
-      NUM: num.evidence_density,
-      DYN: dyn.evidence_density,
-      CHR: chr.evidence_density,
-      SPA: spa.evidence_density,
-      EVI: evi.evidence_density,
-      MIS: mis.evidence_density
-    });
-
-    // Calculate aggregate evidence density
-    const allShardPointers = new Set([
-      ...num.shard_pointers,
-      ...dyn.shard_pointers,
-      ...chr.shard_pointers,
-      ...spa.shard_pointers,
-      ...evi.shard_pointers,
-      ...mis.shard_pointers
-    ]);
-
-    // Generate 9D fingerprint
-    const lobeOutputs = [num, dyn, chr, spa, evi, mis];
-    const fingerprint = generate9DFingerprint(lobeOutputs, shardPointers);
-
-    // For Beta synthesis, we run a second pass with slight variation
-    // In production, this would use different temperature or prompts
-    const totalEvidenceDensity = num.evidence_density + dyn.evidence_density + 
-                                  chr.evidence_density + spa.evidence_density + 
-                                  evi.evidence_density + mis.evidence_density;
-
-    // Simulate Beta candidate (in production, run parallel with different params)
-    const betaEvidenceDensity = totalEvidenceDensity * 0.85; // Simulated beta
-
-    // Check for legacy experience
-    let legacyAsset = null;
-    if (legacyExperienceId) {
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      const { data } = await supabase
-        .from('experience')
-        .select('logic_skeleton')
-        .eq('id', legacyExperienceId)
-        .single();
-      
-      if (data?.logic_skeleton) {
-        legacyAsset = { 
-          evidence_density: (data.logic_skeleton as any).evidence_density || 0 
+      if (!matchError && matches && matches.length > 0) {
+        const match = matches[0];
+        legacyMatch = {
+          id: match.id,
+          logic_mis: match.logic_mis,
+          evidence_density: typeof match.similarity === 'number' ? match.similarity * 60 : 30,
+          title: match.title
         };
+        console.log(`[HEXALOBE] Legacy found: ${match.title} (similarity: ${match.similarity})`);
       }
     }
 
-    // Triple-Consensus Adjudication
-    const winner = adjudicateConsensus(
-      { evidence_density: totalEvidenceDensity },
-      { evidence_density: betaEvidenceDensity },
-      legacyAsset
-    );
+    // ========== PHASE 2: GENERATE ALPHA & BETA CANDIDATES ==========
+    console.log('[HEXALOBE] Executing Alpha & Beta parallel synthesis...');
+    
+    // Alpha: Focused synthesis with original prompt
+    // Beta: Broader context synthesis (simulated with slight variation)
+    const [alphaCandidate, betaCandidate] = await Promise.all([
+      executeHexalobe(l1Markdown, userPrompt, shardPointers),
+      executeHexalobe(l1Markdown, `${userPrompt} [Consider broader implications and alternative interpretations]`, shardPointers)
+    ]);
 
-    console.log(`[HEXALOBE] Consensus Winner: ${winner}`);
+    console.log('[HEXALOBE] Candidates generated:', {
+      alpha_density: alphaCandidate.evidence_density,
+      beta_density: betaCandidate.evidence_density,
+      legacy_density: legacyMatch?.evidence_density || 'N/A'
+    });
 
+    // ========== PHASE 3: SUPREME COURT ADJUDICATION ==========
+    console.log('[HEXALOBE] Invoking Supreme Court...');
+    const verdict = await adjudicate(alphaCandidate, betaCandidate, legacyMatch, userPrompt);
+    console.log(`[HEXALOBE] Verdict: ${verdict.winner} - ${verdict.reasoning.substring(0, 100)}...`);
+
+    // Select the winning candidate's data
+    const winningCandidate = verdict.winner === 'LEGACY' && legacyMatch 
+      ? { ...alphaCandidate, evidence_density: legacyMatch.evidence_density } // Use legacy density
+      : verdict.winner === 'ALPHA' 
+        ? alphaCandidate 
+        : betaCandidate;
+
+    // ========== PHASE 4: DATABASE ACTIONS ==========
+    // Get user from auth header if available
+    let userId: string | null = null;
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const { data: { user } } = await supabase.auth.getUser(authHeader.split(' ')[1]);
+      userId = user?.id || null;
+    }
+
+    // SHRED Legacy if superseded
+    if (verdict.winner !== 'LEGACY' && legacyMatch) {
+      console.log(`[HEXALOBE] Shredding legacy experience: ${legacyMatch.id}`);
+      await supabase
+        .from('experience')
+        .update({ 
+          status: 'SHREDDED',
+          description: `Superseded by ${verdict.winner} due to Evidence Density conflict. Reasoning: ${verdict.reasoning}`
+        })
+        .eq('id', legacyMatch.id);
+    }
+
+    // Build the final ThoughtAsset
     const thoughtAsset: ThoughtAsset = {
-      logic_num: num.logic,
-      logic_dyn: dyn.logic,
-      logic_chr: chr.logic,
-      logic_spa: spa.logic,
-      logic_evi: evi.logic,
-      logic_mis: mis.logic,
-      evidence_density: totalEvidenceDensity,
-      anchor_shard_ids: Array.from(allShardPointers),
-      structural_fingerprint: fingerprint,
-      consensus_winner: winner
+      ...winningCandidate,
+      consensus_winner: verdict.winner,
+      handover_summary: verdict.handover_summary,
+      reasoning: verdict.reasoning
     };
 
+    // Return response with lobe details
     return new Response(
       JSON.stringify({
         success: true,
         thoughtAsset,
+        verdict: {
+          winner: verdict.winner,
+          reasoning: verdict.reasoning,
+          handover_summary: verdict.handover_summary
+        },
         lobeDetails: {
-          NUM: { evidence_density: num.evidence_density, shard_count: num.shard_pointers.length },
-          DYN: { evidence_density: dyn.evidence_density, shard_count: dyn.shard_pointers.length },
-          CHR: { evidence_density: chr.evidence_density, shard_count: chr.shard_pointers.length },
-          SPA: { evidence_density: spa.evidence_density, shard_count: spa.shard_pointers.length },
-          EVI: { evidence_density: evi.evidence_density, shard_count: evi.shard_pointers.length },
-          MIS: { evidence_density: mis.evidence_density, shard_count: mis.shard_pointers.length }
-        }
+          NUM: { evidence_density: alphaCandidate.logic_num ? 1 : 0, shard_count: alphaCandidate.anchor_shard_ids.length },
+          DYN: { evidence_density: alphaCandidate.logic_dyn ? 1 : 0, shard_count: 0 },
+          CHR: { evidence_density: alphaCandidate.logic_chr ? 1 : 0, shard_count: 0 },
+          SPA: { evidence_density: alphaCandidate.logic_spa ? 1 : 0, shard_count: 0 },
+          EVI: { evidence_density: alphaCandidate.logic_evi ? 1 : 0, shard_count: 0 },
+          MIS: { evidence_density: alphaCandidate.logic_mis ? 1 : 0, shard_count: 0 }
+        },
+        legacyShredded: verdict.winner !== 'LEGACY' && legacyMatch ? legacyMatch.id : null
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

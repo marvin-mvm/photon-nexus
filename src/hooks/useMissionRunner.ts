@@ -304,7 +304,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
     timeoutsRef.current.push(endTimeout);
   }, [clearTimeouts, resetMirror, startMission, endMission, executeStep, contextSaturation, checkCalibrationThreshold]);
 
-  // NEW: Run Hexalobe-powered mission with real 6-lobe AI synthesis
+  // NEW: Run Hexalobe-powered mission with real 6-lobe AI synthesis + Supreme Court Adjudication
   const runHexalobeMission = useCallback(async (userPrompt: string, l1Markdown?: string) => {
     if (!synthesizeThought) {
       console.warn('[HEXALOBE] synthesizeThought not available, falling back to demo');
@@ -325,7 +325,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
 
     // Phase 2: INGEST - show we're processing
     setTimeout(() => {
-      addEntry('NUM', 'INGEST: Initializing 6-lobe parallel synthesis...', 'INGEST');
+      addEntry('NUM', 'INGEST: Initializing 6-lobe parallel synthesis (Alpha & Beta tracks)...', 'INGEST');
       playDataIngest();
       setMissionProgress(15);
     }, 500);
@@ -341,44 +341,64 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
       }, 1000 + (index * 400));
     });
 
-    // Phase 3: Call the Hexalobe Edge Function
+    // Phase 3: Call the Hexalobe Edge Function with Supreme Court
     try {
       const markdown = l1Markdown || `User Query: ${userPrompt}\n\nThis is a cognitive synthesis request requiring 6-lobe categorical analysis.`;
       
       setTimeout(() => {
-        addEntry('EVI', 'SYNTHESIS: Invoking Hexalobe Orchestrator...', 'INGEST');
-        setMissionProgress(75);
+        addEntry('EVI', 'SYNTHESIS: Invoking Hexalobe Supreme Court Orchestrator...', 'INGEST');
+        setMissionProgress(70);
       }, 3500);
+
+      setTimeout(() => {
+        addEntry('MIS', 'ADJUDICATION: Supreme Court convened. Comparing Alpha vs Beta vs Legacy...', 'ADJUDICATION');
+        playConflict();
+        setMissionProgress(80);
+      }, 4000);
 
       const result = await synthesizeThought(markdown, userPrompt, []);
 
       if (result?.success && result.thoughtAsset) {
-        const { thoughtAsset, lobeDetails } = result;
+        const { thoughtAsset, lobeDetails, verdict, legacyShredded } = result;
 
-        // Phase 4: ADJUDICATION
+        // Extract verdict details
+        const verdictInfo = verdict || {
+          winner: thoughtAsset.consensus_winner,
+          reasoning: thoughtAsset.reasoning || 'Evidence density comparison',
+          handover_summary: thoughtAsset.handover_summary || 'Synthesis complete'
+        };
+
+        // Phase 4: Show VERDICT
         setTimeout(() => {
-          addEntry('MIS', `ADJUDICATION: Evidence Density = ${thoughtAsset.evidence_density}`, 'ADJUDICATION');
-          playConflict();
-          setMissionProgress(85);
+          addEntry('MIS', `VERDICT: ${verdictInfo.winner} wins — ${verdictInfo.reasoning}`, 'ADJUDICATION');
+          setMissionProgress(90);
           incrementSaturation(15);
-        }, 4000);
+        }, 500);
 
-        // Phase 5: PROMOTION - display winner
+        // Phase 5: Show if Legacy was shredded
+        if (legacyShredded) {
+          setTimeout(() => {
+            addEntry('EVI', `SHRED: Legacy experience ${legacyShredded.substring(0, 8)}... superseded by ${verdictInfo.winner}`, 'CONFLICT');
+            playShred();
+          }, 1000);
+        }
+
+        // Phase 6: PROMOTION with handover summary
         setTimeout(() => {
-          addEntry('MIS', `CONSENSUS: ${thoughtAsset.consensus_winner} candidate promoted with density ${thoughtAsset.evidence_density}`, 'PROMOTION');
+          addEntry('MIS', `HANDOVER: ${verdictInfo.handover_summary}`, 'PROMOTION');
           playResolution();
           setMirrorMatch(Math.min(100, thoughtAsset.evidence_density * 3));
           setIsMirrorActive(true);
           setMissionProgress(95);
           consumeCredit();
-        }, 4800);
+        }, 1500);
 
-        // Phase 6: Create MindMap asset and archive
+        // Phase 7: Create MindMap asset and archive
         setTimeout(() => {
           const assetName = `Thought_${Date.now()}`;
-          addMindMap(assetName, new Date().getFullYear(), 'promoted', 'Hexalobe synthesis complete', {
+          addMindMap(assetName, new Date().getFullYear(), 'promoted', verdictInfo.handover_summary, {
             prompt: userPrompt,
-            consensusWinner: thoughtAsset.consensus_winner,
+            consensusWinner: verdictInfo.winner,
             evidenceDensity: thoughtAsset.evidence_density,
             l1Markdown: markdown,
           });
@@ -387,9 +407,9 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
           if (insertExperience && sessionId) {
             insertExperience({
               session_id: sessionId,
-              title: `${assetName} - Hexalobe Synthesis`,
+              title: `${assetName} - Supreme Court Synthesis`,
               description: userPrompt,
-              handover_summary: `6-lobe parallel synthesis complete. Winner: ${thoughtAsset.consensus_winner}. Evidence density: ${thoughtAsset.evidence_density}. Lobes: NUM(${lobeDetails.NUM.evidence_density}), DYN(${lobeDetails.DYN.evidence_density}), CHR(${lobeDetails.CHR.evidence_density}), SPA(${lobeDetails.SPA.evidence_density}), EVI(${lobeDetails.EVI.evidence_density}), MIS(${lobeDetails.MIS.evidence_density}).`,
+              handover_summary: verdictInfo.handover_summary,
               logic_skeleton: thoughtAsset as unknown as Json,
               status: 'ACTIVE',
             });
@@ -398,7 +418,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
           setMissionProgress(100);
           setMissionPhase('COMPLETE');
           endMission();
-        }, 5500);
+        }, 2500);
 
       } else {
         throw new Error('Synthesis returned no result');
@@ -415,7 +435,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
     synthesizeThought, runCustomMission, clearTimeouts, resetMirror, startMission, endMission,
     addEntry, addMindMap, setActiveLobes, setMissionPhase, setMissionProgress, setMirrorMatch,
     setIsMirrorActive, consumeCredit, incrementSaturation, insertExperience, sessionId,
-    playBeep, playDataIngest, playLobeActivation, playConflict, playResolution
+    playBeep, playDataIngest, playLobeActivation, playConflict, playResolution, playShred
   ]);
 
   return {
