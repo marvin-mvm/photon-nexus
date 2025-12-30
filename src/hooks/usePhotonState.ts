@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { LobeEntry, Shard, MindMapAsset, EntropySlice, MissionState, LobeType, SessionState, LogicChip, LogEntryType } from '@/types/photon';
+import { LobeEntry, Shard, MindMapAsset, EntropySlice, MissionState, LobeType, SessionState, LogicChip, LogEntryType, AppMode } from '@/types/photon';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -38,6 +38,12 @@ export function usePhotonState() {
 
   // Selected asset for Audit Trail panel
   const [selectedAsset, setSelectedAsset] = useState<MindMapAsset | null>(null);
+
+  // App mode: DEMO (scripted sequences) vs LIVE (real AI synthesis)
+  const [appMode, setAppMode] = useState<AppMode>('DEMO');
+
+  // L1 Markdown source material for Live AI ingestion
+  const [sourceMaterial, setSourceMaterial] = useState('');
 
   const consumeCredit = useCallback(() => {
     setCredits((prev) => Math.max(0, prev - 1));
@@ -225,6 +231,8 @@ export function usePhotonState() {
     sessionState,
     isAuthenticated,
     selectedAsset,
+    appMode,
+    sourceMaterial,
     // Actions
     addEntry,
     addShard,
@@ -254,5 +262,8 @@ export function usePhotonState() {
     // Auth & selection actions
     setIsAuthenticated,
     setSelectedAsset,
+    // Mode & ingestion actions
+    setAppMode,
+    setSourceMaterial,
   };
 }

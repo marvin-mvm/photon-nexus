@@ -239,14 +239,21 @@ export function useSupabaseSession() {
     l1Markdown: string,
     userPrompt: string,
     shardPointers: number[] = [],
-    legacyExperienceId?: string
+    legacyExperienceId?: string,
+    fingerprint?: number[]
   ): Promise<SynthesisResult | null> => {
     setIsLoading(true);
     setError(null);
 
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('hexalobe-orchestrator', {
-        body: { l1Markdown, userPrompt, shardPointers, legacyExperienceId }
+        body: { 
+          l1Markdown, 
+          userPrompt, 
+          shardPointers, 
+          legacyExperienceId,
+          current_fingerprint: fingerprint || []
+        }
       });
 
       if (invokeError) throw invokeError;

@@ -3,6 +3,7 @@ import { LobeType } from '@/types/photon';
 import { DemoStep, getDemoSequence, generateCustomSequence } from '@/lib/demoSequences';
 import type { Json } from '@/integrations/supabase/types';
 import type { SynthesisResult, ThoughtAsset } from '@/hooks/useSupabaseSession';
+import { generate9DFingerprint } from '@/lib/fingerprintUtils';
 
 interface UseMissionRunnerParams {
   addEntry: (lobe: LobeType, message: string, type?: string) => void;
@@ -47,7 +48,8 @@ interface UseMissionRunnerParams {
     l1Markdown: string,
     userPrompt: string,
     shardPointers?: number[],
-    legacyExperienceId?: string
+    legacyExperienceId?: string,
+    fingerprint?: number[]
   ) => Promise<SynthesisResult | null>;
   // Sound callbacks
   playLobeActivation: (index: number) => void;
@@ -345,7 +347,12 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
     try {
       const markdown = l1Markdown || `User Query: ${userPrompt}\n\nThis is a cognitive synthesis request requiring 6-lobe categorical analysis.`;
       
+      // Generate 9D fingerprint from the source material
+      const fingerprint = generate9DFingerprint(markdown);
+      console.log('[HEXALOBE] 9D Fingerprint:', fingerprint);
+
       setTimeout(() => {
+        addEntry('EVI', `FINGERPRINT: [${fingerprint.slice(0, 3).map(v => v.toFixed(2)).join(', ')}...] topology mapped`, 'INGEST');
         addEntry('EVI', 'SYNTHESIS: Invoking Hexalobe Supreme Court Orchestrator...', 'INGEST');
         setMissionProgress(70);
       }, 3500);
@@ -356,7 +363,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
         setMissionProgress(80);
       }, 4000);
 
-      const result = await synthesizeThought(markdown, userPrompt, []);
+      const result = await synthesizeThought(markdown, userPrompt, [], undefined, fingerprint);
 
       if (result?.success && result.thoughtAsset) {
         const { thoughtAsset, lobeDetails, verdict, legacyShredded } = result;

@@ -2,6 +2,8 @@ import { Cpu, RefreshCw, TrendingUp, Layers, ShieldCheck, Brain, LucideIcon } fr
 
 export type LobeType = 'NUM' | 'DYN' | 'CHR' | 'SPA' | 'EVI' | 'MIS';
 
+export type AppMode = 'DEMO' | 'LIVE';
+
 export type LogEntryType = 
   | 'XOR' | 'MEM' | 'SELF' | 'SHRED' | 'SUCCESS' | 'CONFLICT' | 'MIRROR' | 'CALIBRATION' | 'SYSTEM'
   | 'USER' | 'ADJUDICATION' | 'PROMOTION' | 'ALERT' | 'INGEST';

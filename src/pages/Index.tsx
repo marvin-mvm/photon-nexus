@@ -9,6 +9,7 @@ import { NeuralMirrorScanner } from '@/components/photon/NeuralMirrorScanner';
 import { AlphaDiscoveryBanner } from '@/components/photon/AlphaDiscoveryBanner';
 import { CalibrationBalloon } from '@/components/photon/CalibrationBalloon';
 import { AuditTrail } from '@/components/photon/AuditTrail';
+import { IngestionPanel } from '@/components/photon/IngestionPanel';
 import { usePhotonState } from '@/hooks/usePhotonState';
 import { useSoundSystem } from '@/hooks/useSoundSystem';
 import { useMissionRunner } from '@/hooks/useMissionRunner';
@@ -76,25 +77,40 @@ const Index = () => {
     missionRunner.runMission(missionId);
   };
 
-  const handleCustomMission = async (problem: string) => {
+  // Mode-aware Terminal submit handler
+  const handleTerminalSubmit = async (problem: string) => {
     if (photonState.credits <= 0 || !photonState.isAuthenticated) return;
     soundSystem.initAudio();
-    
+
+    // Validate LIVE mode requirements
+    if (photonState.appMode === 'LIVE' && !photonState.sourceMaterial.trim()) {
+      photonState.addEntry('MIS', 'ERROR: L1 Markdown context required for Live AI synthesis. Paste source material in the Ingestion Panel.', 'ALERT');
+      return;
+    }
+
     // Add USER entry first
     photonState.addEntry('MIS', problem, 'USER');
-    
+
+    // Create session if needed
     if (!photonState.sessionState.sessionId) {
-      const newSessionId = await supabaseSession.createSession('Custom Mission');
+      const sessionTitle = photonState.appMode === 'LIVE' ? 'Hexalobe Synthesis' : 'Custom Mission';
+      const newSessionId = await supabaseSession.createSession(sessionTitle);
       if (newSessionId) photonState.setSessionId(newSessionId);
     }
-    
-    missionRunner.runCustomMission(problem);
+
+    // Route based on mode
+    if (photonState.appMode === 'LIVE') {
+      missionRunner.runHexalobeMission(problem, photonState.sourceMaterial);
+    } else {
+      missionRunner.runCustomMission(problem);
+    }
   };
 
   const handleReset = () => {
     missionRunner.clearTimeouts();
     photonState.clearAll();
     photonState.setIsAuthenticated(false);
+    photonState.setSourceMaterial('');
   };
 
   const handleArchive = async () => {
@@ -121,7 +137,7 @@ const Index = () => {
       <AlphaDiscoveryBanner credits={photonState.credits} />
 
       <header className="border-b border-white/5 bg-black/60 backdrop-blur-2xl sticky top-0 z-50 px-10 py-5">
-        <div className="max-w-[1700px] mx-auto flex items-center justify-between">
+        <div className="max-w-[1900px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-5">
             <div className="relative">
               <div className={cn(
@@ -144,7 +160,7 @@ const Index = () => {
               <h1 className="text-xl font-black text-foreground tracking-tighter uppercase flex items-center gap-3">
                 {photonState.isAuthenticated ? 'Secure Node: Active' : 'Node Locked'}
                 <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded text-muted-foreground font-bold">
-                  v11.0.BETA
+                  v11.5.BETA
                 </span>
               </h1>
               <div className="flex items-center gap-2">
@@ -161,30 +177,81 @@ const Index = () => {
             </div>
           </div>
 
-          <MirrorResonanceGauge 
-            mirrorMatch={photonState.mirrorMatch}
-            isMirrorActive={photonState.isMirrorActive}
-          />
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-4 bg-white/5 px-4 py-2 rounded-full border border-white/10">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Mode:</span>
+            <button
+              onClick={() => photonState.setAppMode('DEMO')}
+              className={cn(
+                "text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full transition-all",
+                photonState.appMode === 'DEMO'
+                  ? 'text-primary bg-primary/20'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Demo
+            </button>
+            <button
+              onClick={() => photonState.setAppMode('LIVE')}
+              className={cn(
+                "text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full transition-all",
+                photonState.appMode === 'LIVE'
+                  ? 'text-lobe-spatial bg-lobe-spatial/20'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Live AI
+            </button>
+          </div>
 
-          <button
-            onClick={soundSystem.toggleMute}
-            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-xl hover:bg-white/5"
-          >
-            {soundSystem.isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-          </button>
+          <div className="flex items-center gap-6">
+            <MirrorResonanceGauge 
+              mirrorMatch={photonState.mirrorMatch}
+              isMirrorActive={photonState.isMirrorActive}
+            />
+
+            <button
+              onClick={soundSystem.toggleMute}
+              className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-xl hover:bg-white/5"
+            >
+              {soundSystem.isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-[1700px] mx-auto p-10">
-        <div className="grid grid-cols-12 gap-10">
-          <div className="col-span-12 lg:col-span-8 space-y-10">
+      <main className="max-w-[1900px] mx-auto p-10">
+        <div className="grid grid-cols-12 gap-8">
+          {/* LEFT: Ingestion Panel (visible in LIVE mode or always on large screens) */}
+          <div className={cn(
+            "col-span-12 lg:col-span-3",
+            photonState.appMode === 'DEMO' && "hidden lg:block"
+          )}>
+            <div className="h-[600px]">
+              <IngestionPanel
+                sourceMaterial={photonState.sourceMaterial}
+                onSourceMaterialChange={photonState.setSourceMaterial}
+                isLiveMode={photonState.appMode === 'LIVE'}
+                isThinking={photonState.missionState.isRunning}
+                activeLobes={photonState.missionState.activeLobes}
+              />
+            </div>
+          </div>
+
+          {/* CENTER: Terminal */}
+          <div className={cn(
+            "space-y-10",
+            photonState.appMode === 'LIVE' 
+              ? "col-span-12 lg:col-span-6" 
+              : "col-span-12 lg:col-span-5"
+          )}>
             <div className="h-[600px]">
               <Terminal 
                 entries={photonState.entries} 
                 contextSaturation={photonState.sessionState.contextSaturation}
                 isAuthenticated={photonState.isAuthenticated}
                 isThinking={photonState.missionState.isRunning}
-                onSubmit={handleCustomMission}
+                onSubmit={handleTerminalSubmit}
               />
             </div>
             
@@ -206,7 +273,8 @@ const Index = () => {
             </div>
           </div>
 
-          <div className="col-span-12 lg:col-span-4 space-y-8">
+          {/* RIGHT: Controls & Metrics */}
+          <div className="col-span-12 lg:col-span-3 space-y-8">
             {/* Authentication Button */}
             {!photonState.isAuthenticated && (
               <button
@@ -223,7 +291,7 @@ const Index = () => {
               currentPhase={photonState.missionState.currentPhase}
               credits={photonState.credits}
               onStartMission={handleStartMission}
-              onCustomMission={handleCustomMission}
+              onCustomMission={handleTerminalSubmit}
               onReset={handleReset}
             />
 
