@@ -1,9 +1,15 @@
 /**
- * PHOTON NEXUS: THE MATA PROTOCOL (v11.0)
+ * PHOTON NEXUS: THE MATA PROTOCOL (v13.1 Hybrid)
  * Edge Function: Hexalobe Supreme Court (Adjudicator)
  * 
  * MISSION: Execute 6-Lobe Parallel Synthesis, Triple-Consensus (Alpha vs Beta vs Legacy),
- * and Evidence-based Adjudication using Gemini 2.5 Flash with Judicial Instructions.
+ * Evidence-based Adjudication using Gemini 2.5 Flash, and Direct Database Promotion.
+ * 
+ * HYBRID FEATURES:
+ * - Preserves v11.0 detailed lobe prompts and response structure
+ * - Adds v13.0 database writes and asset_id return
+ * - Updated model to gemini-2.5-flash-preview-09-2025
+ * - Normalizes parameter names for compatibility
  */
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
@@ -19,7 +25,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// 6-Lobe System Prompts - Specialized Categorical Analyzers
+// 6-Lobe System Prompts - Specialized Categorical Analyzers with Symbolic Role Mapping
 const LOBE_PROMPTS = {
   NUM: `You are the NUMERIC LOBE of a cognitive engine. Your task is quantitative analysis.
 Identify and extract ALL:
@@ -27,6 +33,8 @@ Identify and extract ALL:
 - Risk ratios and percentages
 - Dollar amounts and financial figures
 - Statistical variances and correlations
+
+SYMBOLIC ROLE MAPPING: Replace raw values with semantic roles like [THRESHOLD_ALPHA], [RATIO_BETA].
 
 Return ONLY valid JSON with Symbolic Roles like:
 {
@@ -45,6 +53,8 @@ Map action-reaction chains. Identify:
 - Cause and effect relationships
 - Direct derivations vs semantic correlations
 
+SYMBOLIC ROLE MAPPING: Use [CAUSE], [EFFECT], [REACTION] placeholders.
+
 Return ONLY valid JSON:
 {
   "logic": {
@@ -62,6 +72,8 @@ Establish definitive timelines:
 - Identify 'Before' and 'After' states
 - Flag temporal anomalies where newer data contradicts older baselines
 
+SYMBOLIC ROLE MAPPING: Use [BASELINE_DATE], [EVENT_HORIZON], [TEMPORAL_SEQUENCE].
+
 Return ONLY valid JSON:
 {
   "logic": {
@@ -78,6 +90,8 @@ Visualize the arrangement of ideas:
 - Identify clusters of related concepts
 - Map boundaries of arguments
 - Detect patterns like 'Double Bottom', 'Triangular Convergence', 'Support/Resistance'
+
+SYMBOLIC ROLE MAPPING: Use [BOUNDARY_LOW], [BOUNDARY_HIGH], [PATTERN_GEOMETRY], [CLUSTER].
 
 Return ONLY valid JSON:
 {
@@ -97,6 +111,8 @@ List all truth-claims and verify them:
 - Rank each claim by Evidence Density
 - Mark tables, formulas, or citations as 'Hard Evidence'
 
+SYMBOLIC ROLE MAPPING: Use [HARD_FACT], [VERIFICATION_SOURCE], [CONFIDENCE].
+
 Return ONLY valid JSON:
 {
   "logic": {
@@ -113,6 +129,8 @@ Compare findings against the User's core Mission:
 - Is this logic helpful or distracting?
 - Does it align with the user's Risk Tolerance?
 - Does it serve the specified End Goal?
+
+SYMBOLIC ROLE MAPPING: Use [ALIGNMENT_SCORE], [MANDATE_STATUS], [RECOMMENDATION].
 
 Return ONLY valid JSON:
 {
@@ -361,8 +379,8 @@ Respond only in valid JSON:
   };
 
   try {
-    // Use gemini-2.5-flash-preview for structured adjudication
-    const result = await callGeminiWithRetry(payload, 'gemini-2.5-flash-preview-05-20');
+    // Updated to gemini-2.5-flash-preview-09-2025 for structured adjudication
+    const result = await callGeminiWithRetry(payload, 'gemini-2.5-flash-preview-09-2025');
     const textContent = result.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (!textContent) {
@@ -391,7 +409,14 @@ serve(async (req) => {
   }
 
   try {
-    const { l1Markdown, userPrompt, shardPointers = [], currentFingerprint } = await req.json();
+    // ========== PARAMETER NORMALIZATION (v11 + v13 compatibility) ==========
+    const body = await req.json();
+    const l1Markdown = body.l1Markdown;
+    const userPrompt = body.userPrompt;
+    // Accept both v11 (shardPointers, currentFingerprint) and v13 (shards, current_fingerprint) naming
+    const shardPointers = body.shardPointers || body.shards || [];
+    const currentFingerprint = body.currentFingerprint || body.current_fingerprint;
+    const missionId = body.mission_id || body.missionId;
 
     if (!l1Markdown || !userPrompt) {
       return new Response(
@@ -409,7 +434,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('[HEXALOBE] Initiating Supreme Court Adjudication...');
+    console.log('[HEXALOBE] Initiating Supreme Court Adjudication (v13.1 Hybrid)...');
     console.log('[HEXALOBE] User Prompt:', userPrompt.substring(0, 100) + '...');
 
     // ========== PHASE 1: 9D MIRROR SEARCH FOR LEGACY ==========
@@ -484,6 +509,42 @@ serve(async (req) => {
         .eq('id', legacyMatch.id);
     }
 
+    // ========== PHASE 5: DIRECT DATABASE INSERT (v13 Feature) ==========
+    let assetId: string | null = null;
+    
+    if (userId) {
+      console.log('[HEXALOBE] Inserting PROMOTED experience to database...');
+      const { data: experienceData, error: experienceError } = await supabase
+        .from('experience')
+        .insert({
+          user_id: userId,
+          session_id: missionId || null,
+          title: `Sovereign Logic: ${verdict.winner}`,
+          prompt_origin: userPrompt,
+          handover_summary: verdict.handover_summary,
+          logic_num: winningCandidate.logic_num,
+          logic_dyn: winningCandidate.logic_dyn,
+          logic_chr: winningCandidate.logic_chr,
+          logic_spa: winningCandidate.logic_spa,
+          logic_evi: winningCandidate.logic_evi,
+          logic_mis: winningCandidate.logic_mis,
+          structural_fingerprint: winningCandidate.structural_fingerprint,
+          evidence_density: winningCandidate.evidence_density,
+          consensus_winner: verdict.winner,
+          status: 'PROMOTED'
+        })
+        .select('id')
+        .single();
+
+      if (experienceError) {
+        console.error('[HEXALOBE] Experience insert error:', experienceError);
+        // Continue without failing - experience insertion is not critical
+      } else {
+        assetId = experienceData?.id || null;
+        console.log(`[HEXALOBE] Experience archived: ${assetId}`);
+      }
+    }
+
     // Build the final ThoughtAsset
     const thoughtAsset: ThoughtAsset = {
       ...winningCandidate,
@@ -492,7 +553,8 @@ serve(async (req) => {
       reasoning: verdict.reasoning
     };
 
-    // Return response with lobe details
+    // ========== PHASE 6: RETURN COMPATIBLE RESPONSE ==========
+    // Maintains v11 structure + adds v13 fields (asset_id, evidence_density at root)
     return new Response(
       JSON.stringify({
         success: true,
@@ -510,7 +572,10 @@ serve(async (req) => {
           EVI: { evidence_density: alphaCandidate.logic_evi ? 1 : 0, shard_count: 0 },
           MIS: { evidence_density: alphaCandidate.logic_mis ? 1 : 0, shard_count: 0 }
         },
-        legacyShredded: verdict.winner !== 'LEGACY' && legacyMatch ? legacyMatch.id : null
+        legacyShredded: verdict.winner !== 'LEGACY' && legacyMatch ? legacyMatch.id : null,
+        // NEW v13 fields
+        asset_id: assetId,
+        evidence_density: winningCandidate.evidence_density
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -45,6 +45,9 @@ export interface SynthesisResult {
     handover_summary: string;
   };
   legacyShredded?: string | null;
+  // v13 additions
+  asset_id?: string | null;
+  evidence_density?: number;
 }
 
 export function useSupabaseSession() {

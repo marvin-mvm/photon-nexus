@@ -366,7 +366,7 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
       const result = await synthesizeThought(markdown, userPrompt, [], undefined, fingerprint);
 
       if (result?.success && result.thoughtAsset) {
-        const { thoughtAsset, lobeDetails, verdict, legacyShredded } = result;
+        const { thoughtAsset, lobeDetails, verdict, legacyShredded, asset_id } = result;
 
         // Extract verdict details
         const verdictInfo = verdict || {
@@ -400,9 +400,9 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
           consumeCredit();
         }, 1500);
 
-        // Phase 7: Create MindMap asset and archive
+        // Phase 7: Create MindMap asset and show archived asset_id
         setTimeout(() => {
-          const assetName = `Thought_${Date.now()}`;
+          const assetName = asset_id ? `Asset_${asset_id.substring(0, 8)}` : `Thought_${Date.now()}`;
           addMindMap(assetName, new Date().getFullYear(), 'promoted', verdictInfo.handover_summary, {
             prompt: userPrompt,
             consensusWinner: verdictInfo.winner,
@@ -410,8 +410,13 @@ export function useMissionRunner(params: UseMissionRunnerParams) {
             l1Markdown: markdown,
           });
 
-          // Insert to experience if available
-          if (insertExperience && sessionId) {
+          // Show asset_id if returned from edge function (v13 feature)
+          if (asset_id) {
+            addEntry('EVI', `ARCHIVED: Experience ${asset_id.substring(0, 8)}... saved to instinct table`, 'SUCCESS');
+          }
+
+          // Skip frontend insert if edge function already archived (asset_id present)
+          if (!asset_id && insertExperience && sessionId) {
             insertExperience({
               session_id: sessionId,
               title: `${assetName} - Supreme Court Synthesis`,
